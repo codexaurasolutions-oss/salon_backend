@@ -1,0 +1,786 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String                 @id @default(uuid()) @db.VarChar(36)
+  email                 String                 @unique @db.VarChar(255)
+  password_hash         String                 @db.VarChar(255)
+  email_verified        Boolean                @default(false)
+  created_at            DateTime               @default(now()) @db.Timestamp(0)
+  updated_at            DateTime               @default(now()) @updatedAt @db.Timestamp(0)
+  
+  profile               Profile?
+  user_roles            UserRole[]
+  bookings              Booking[]
+  admin                 PlatformAdmin?
+  customer_profiles     CustomerSalonProfile[]
+  loyalty_transactions  LoyaltyTransaction[]
+  coin_transactions     CoinTransaction[]
+  treatment_records     TreatmentRecord[]
+  sent_messages         Message[] @relation("MessageSender")
+  received_messages     Message[] @relation("MessageReceiver")
+  notifications         Notification[]
+  reviews               Review[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Profile {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  user_id    String   @unique @db.VarChar(36)
+  full_name  String?  @db.VarChar(255)
+  phone      String?  @db.VarChar(20)
+  avatar_url String?  @db.Text
+  user_type  UserType @default(customer)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+  
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+enum UserType {
+  customer
+  salon_owner
+  admin
+  staff
+}
+
+model Salon {
+  id                    String    @id @default(uuid()) @db.VarChar(36)
+  name                  String    @db.VarChar(255)
+  slug                  String    @unique @db.VarChar(255)
+  description           String?   @db.Text
+  address               String?   @db.Text
+  city                  String?   @db.VarChar(100)
+  state                 String?   @db.VarChar(100)
+  pincode               String?   @db.VarChar(10)
+  phone                 String?   @db.VarChar(20)
+  email                 String?   @db.VarChar(255)
+  gst_number            String?   @db.VarChar(50)
+  logo_url              String?   @db.Text
+  cover_image_url       String?   @db.Text
+  business_hours        Json?
+  tax_settings          Json?
+  notification_settings Json?
+  is_active             Boolean   @default(true)
+  approval_status       ApprovalStatus @default(pending)
+  approved_at           DateTime? @db.Timestamp(0)
+  approved_by           String?   @db.VarChar(36)
+  rejection_reason      String?   @db.Text
+  blocked_at            DateTime? @db.Timestamp(0)
+  blocked_by            String?   @db.VarChar(36)
+  block_reason          String?   @db.Text
+  subscription_plan_id  String?   @db.VarChar(36)
+  subscription_status   SubStatus @default(trial)
+  subscription_start_date DateTime? @db.Timestamp(0)
+  subscription_end_date DateTime? @db.Timestamp(0)
+  trial_ends_at         DateTime? @default(dbgenerated("(DATE_ADD(NOW(), INTERVAL 14 DAY))")) @db.Timestamp(0)
+  created_at            DateTime  @default(now()) @db.Timestamp(0)
+  updated_at            DateTime  @default(now()) @updatedAt @db.Timestamp(0)
+
+  user_roles            UserRole[]
+  services              Service[]
+  staff_profiles        StaffProfile[]
+  bookings              Booking[]
+  subscriptions         SalonSubscription[]
+  payments              PlatformPayment[]
+  customer_profiles     CustomerSalonProfile[]
+  loyalty_programs      LoyaltyProgram?
+  loyalty_rewards       LoyaltyReward[]
+  loyalty_transactions  LoyaltyTransaction[]
+  treatment_records     TreatmentRecord[]
+  messages              Message[]
+  inventory_items       InventoryItem[]
+  product_purchases     ProductPurchase[]
+  reviews               Review[]
+
+  @@index([slug])
+  @@index([approval_status])
+  @@index([is_active])
+  @@map("salons")
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum SubStatus {
+  trial
+  active
+  past_due
+  cancelled
+  expired
+}
+
+model UserRole {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  user_id    String   @db.VarChar(36)
+  salon_id   String   @db.VarChar(36)
+  role       Role     
+  created_at DateTime @default(now()) @db.Timestamp(0)
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  salon      Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, salon_id])
+  @@index([user_id])
+  @@index([salon_id])
+  @@map("user_roles")
+}
+
+enum Role {
+  owner
+  manager
+  staff
+  super_admin
+}
+
+model Service {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  salon_id         String   @db.VarChar(36)
+  name             String   @db.VarChar(255)
+  description      String?  @db.Text
+  price            Decimal  @db.Decimal(10,2)
+  duration_minutes Int
+  category         String?  @db.VarChar(100)
+  image_url        String?  @db.Text
+  is_active        Boolean  @default(true)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  salon            Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  bookings         Booking[]
+
+  @@index([salon_id])
+  @@index([category])
+  @@index([is_active])
+  @@map("services")
+}
+
+model StaffProfile {
+  id                    String   @id @default(uuid()) @db.VarChar(36)
+  user_id               String?  @db.VarChar(36)
+  salon_id              String   @db.VarChar(36)
+  display_name          String   @db.VarChar(255)
+  email                 String?  @db.VarChar(255)
+  phone                 String?  @db.VarChar(20)
+  avatar_url            String?  @db.Text
+  specializations       Json?
+  commission_percentage Decimal? @default(0) @db.Decimal(5,2)
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now()) @db.Timestamp(0)
+  updated_at            DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  salon                 Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  bookings              Booking[]
+
+  @@index([salon_id])
+  @@index([is_active])
+  @@map("staff_profiles")
+}
+
+model Booking {
+  id                   String   @id @default(uuid()) @db.VarChar(36)
+  user_id              String   @db.VarChar(36)
+  salon_id             String   @db.VarChar(36)
+  service_id           String   @db.VarChar(36)
+  staff_id             String?  @db.VarChar(36)
+  booking_date         DateTime @db.Date
+  booking_time         DateTime @db.Time
+  status               BookingStatus @default(pending)
+  price_paid           Decimal? @db.Decimal(10,2)
+  coins_used           Int?     @default(0)
+  coin_currency_value  Decimal? @default(0) @db.Decimal(10,2)
+  discount_amount      Decimal? @default(0) @db.Decimal(10,2)
+  coupon_code          String?  @db.VarChar(50)
+  notes                String?  @db.Text
+  created_at           DateTime @default(now()) @db.Timestamp(0)
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user                 User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  salon                Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  service              Service  @relation(fields: [service_id], references: [id], onDelete: Cascade)
+  staff                StaffProfile? @relation(fields: [staff_id], references: [id], onDelete: SetNull)
+  treatment_records    TreatmentRecord[]
+  review               Review?
+  platformPayments     PlatformPayment[]
+
+  @@index([user_id])
+  @@index([salon_id])
+  @@index([booking_date])
+  @@index([status])
+  @@index([staff_id])
+  @@map("bookings")
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  completed
+  cancelled
+}
+
+model PlatformAdmin {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  user_id    String   @unique @db.VarChar(36)
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("platform_admins")
+}
+
+model SubscriptionPlan {
+  id                     String   @id @default(uuid()) @db.VarChar(36)
+  name                   String   @db.VarChar(255)
+  slug                   String   @unique @db.VarChar(255)
+  description            String?  @db.Text
+  price_monthly          Decimal  @default(0) @db.Decimal(10,2)
+  price_yearly           Decimal? @db.Decimal(10,2)
+  max_staff              Int?     @default(5)
+  max_services           Int?     @default(20)
+  max_bookings_per_month Int?
+  features               Json?
+  is_active              Boolean  @default(true)
+  is_featured            Boolean  @default(false)
+  sort_order             Int?     @default(0)
+  created_at             DateTime @default(now()) @db.Timestamp(0)
+  updated_at             DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  salon_subscriptions    SalonSubscription[]
+
+  @@index([slug])
+  @@map("subscription_plans")
+}
+
+model SalonSubscription {
+  id                String   @id @default(uuid()) @db.VarChar(36)
+  salon_id          String   @db.VarChar(36)
+  plan_id           String   @db.VarChar(36)
+  status            SubPlanStatus @default(active)
+  amount            Decimal  @db.Decimal(10,2)
+  billing_cycle     BillingCycle
+  start_date        DateTime @default(now()) @db.Timestamp(0)
+  end_date          DateTime? @db.Timestamp(0)
+  payment_method    String?  @db.VarChar(100)
+  payment_reference String?  @db.VarChar(255)
+  created_at        DateTime @default(now()) @db.Timestamp(0)
+
+  salon             Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan @relation(fields: [plan_id], references: [id])
+  payments          PlatformPayment[]
+
+  @@index([salon_id])
+  @@map("salon_subscriptions")
+}
+
+enum SubPlanStatus {
+  active
+  cancelled
+  expired
+  upgraded
+  downgraded
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+model PlatformSetting {
+  id            String   @id @default(uuid()) @db.VarChar(36)
+  setting_key   String   @unique @db.VarChar(255)
+  setting_value Json
+  description   String?  @db.Text
+  updated_by    String?  @db.VarChar(36)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("platform_settings")
+}
+
+model PlatformBanner {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  title       String   @db.VarChar(255)
+  subtitle    String?  @db.Text
+  image_url   String?  @db.Text
+  link_url    String?  @db.Text
+  link_text   String?  @db.VarChar(255)
+  position    BannerPos @default(home_hero)
+  is_active   Boolean  @default(true)
+  start_date  DateTime? @db.Timestamp(0)
+  end_date    DateTime? @db.Timestamp(0)
+  sort_order  Int?     @default(0)
+  created_by  String?  @db.VarChar(36)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("platform_banners")
+}
+
+enum BannerPos {
+  home_hero
+  home_secondary
+  sidebar
+  popup
+}
+
+model PlatformOffer {
+  id                 String   @id @default(uuid()) @db.VarChar(36)
+  name               String   @db.VarChar(255)
+  description        String?  @db.Text
+  code               String?  @unique @db.VarChar(50)
+  discount_type      DiscountType
+  discount_value     Decimal  @db.Decimal(10,2)
+  salon_id           String?  @db.VarChar(36)
+  applicable_to      ApplicableTo @default(all)
+  applicable_plan_ids Json?
+  max_uses           Int?
+  used_count         Int?     @default(0)
+  is_active          Boolean  @default(true)
+  start_date         DateTime? @db.Timestamp(0)
+  end_date           DateTime? @db.Timestamp(0)
+  created_by         String?  @db.VarChar(36)
+  created_at         DateTime @default(now()) @db.Timestamp(0)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@map("platform_offers")
+}
+
+enum DiscountType {
+  percentage
+  fixed
+  free_trial_days
+}
+
+enum ApplicableTo {
+  all
+  new_salons
+  existing_salons
+  specific_plans
+}
+
+model AdminActivityLog {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  admin_id    String   @db.VarChar(36)
+  action      String   @db.VarChar(255)
+  entity_type String   @db.VarChar(100)
+  entity_id   String?  @db.VarChar(36)
+  details     Json?
+  ip_address  String?  @db.VarChar(45)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([admin_id])
+  @@index([entity_type])
+  @@map("admin_activity_logs")
+}
+
+model PlatformPayment {
+  id              String    @id @default(uuid()) @db.VarChar(36)
+  user_id         String?   @db.VarChar(36)
+  booking_id      String?   @db.VarChar(36)
+  salon_id        String    @db.VarChar(36)
+  subscription_id String?   @db.VarChar(36)
+  amount          Decimal   @db.Decimal(10,2)
+  currency        String?   @default("MYR") @db.VarChar(3)
+  status          PaymentStatus @default(pending)
+  payment_method  String?   @db.VarChar(100)
+  payment_gateway String?   @db.VarChar(100)
+  transaction_id  String?   @db.VarChar(255)
+  invoice_number  String?   @db.VarChar(100)
+  invoice_url     String?   @db.Text
+  notes           String?   @db.Text
+  paid_at         DateTime? @db.Timestamp(0)
+  created_at      DateTime  @default(now()) @db.Timestamp(0)
+
+  salon           Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  booking         Booking? @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+  subscription    SalonSubscription? @relation(fields: [subscription_id], references: [id])
+
+  @@index([salon_id])
+  @@index([status])
+  @@map("platform_payments")
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+model PlatformOrder {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  user_id          String?  @db.VarChar(36)
+  guest_name       String?  @db.VarChar(255)
+  guest_email      String?  @db.VarChar(255)
+  items            Json?
+  shipping_address Json?
+  total_amount     Decimal  @default(0.00) @db.Decimal(10,2)
+  status           OrderStatus @default(placed)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+  updated_at       DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([user_id])
+  @@index([status])
+  @@map("platform_orders")
+}
+
+enum OrderStatus {
+  placed
+  paid
+  confirmed
+  dispatched
+  delivered
+  cancelled
+}
+
+model NewsletterSubscriber {
+  id         Int      @id @default(autoincrement())
+  email      String   @unique @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([email])
+  @@map("newsletter_subscribers")
+}
+
+model CustomerSalonProfile {
+  id                      String   @id @default(uuid()) @db.VarChar(36)
+  user_id                 String   @db.VarChar(36)
+  salon_id                String   @db.VarChar(36)
+  date_of_birth           DateTime? @db.Date
+  skin_type               String?  @db.VarChar(50)
+  skin_issues             String?  @db.Text
+  allergy_records         String?  @db.Text
+  medical_conditions      String?  @db.Text
+  notes                   String?  @db.Text
+  concern_photo_url       String?  @db.VarChar(255)
+  concern_photo_public_id String?  @db.VarChar(255)
+  loyalty_points          Int?     @default(0)
+  created_at              DateTime @default(now()) @db.Timestamp(0)
+  updated_at              DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  user                    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  salon                   Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, salon_id])
+  @@index([user_id, salon_id])
+  @@map("customer_salon_profiles")
+}
+
+model LoyaltyProgram {
+  id                        String   @id @default(uuid()) @db.VarChar(36)
+  salon_id                  String   @unique @db.VarChar(36)
+  program_name              String?  @default("Loyalty Program") @db.VarChar(255)
+  is_active                 Boolean  @default(false)
+  points_per_currency_unit  Decimal? @default(1.00) @db.Decimal(10,2)
+  min_points_redemption     Int?     @default(100)
+  signup_bonus_points       Int?     @default(0)
+  description               String?  @db.Text
+  created_at                DateTime @default(now()) @db.Timestamp(0)
+  updated_at                DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  salon                     Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_programs")
+}
+
+model LoyaltyReward {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  salon_id        String   @db.VarChar(36)
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  points_required Int
+  discount_amount Decimal? @default(0.00) @db.Decimal(10,2)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamp(0)
+
+  salon           Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_rewards")
+}
+
+model LoyaltyTransaction {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  salon_id         String   @db.VarChar(36)
+  user_id          String   @db.VarChar(36)
+  points           Int
+  transaction_type LoyaltyTxType
+  reference_id     String?  @db.VarChar(36)
+  description      String?  @db.VarChar(255)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+
+  salon            Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("loyalty_transactions")
+}
+
+enum LoyaltyTxType {
+  earned
+  redeemed
+  adjusted
+  bonus
+  refunded
+}
+
+model CoinTransaction {
+  id               String   @id @default(uuid()) @db.VarChar(36)
+  user_id          String   @db.VarChar(36)
+  amount           Decimal  @db.Decimal(15,2)
+  transaction_type CoinTxType
+  description      String?  @db.Text
+  reference_id     String?  @db.VarChar(36)
+  created_at       DateTime @default(now()) @db.Timestamp(0)
+
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("coin_transactions")
+}
+
+enum CoinTxType {
+  earned
+  spent
+  refunded
+  admin_adjustment
+}
+
+model TreatmentRecord {
+  id                          String   @id @default(uuid()) @db.VarChar(36)
+  booking_id                  String?  @db.VarChar(36)
+  user_id                     String   @db.VarChar(36)
+  salon_id                    String   @db.VarChar(36)
+  service_name_manual         String?  @db.VarChar(255)
+  record_date                 DateTime? @db.Date
+  treatment_details           String?  @db.Text
+  products_used               String?  @db.Text
+  skin_reaction               String?  @db.Text
+  improvement_notes           String?  @db.Text
+  recommended_next_treatment  String?  @db.Text
+  post_treatment_instructions String?  @db.Text
+  follow_up_reminder_date     DateTime? @db.Date
+  marketing_notes             String?  @db.Text
+  before_photo_url            String?  @db.Text
+  before_photo_public_id      String?  @db.VarChar(255)
+  after_photo_url             String?  @db.Text
+  after_photo_public_id       String?  @db.VarChar(255)
+  created_at                  DateTime @default(now()) @db.Timestamp(0)
+  updated_at                  DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  booking                     Booking? @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+  user                        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  salon                       Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@index([booking_id])
+  @@index([user_id, salon_id])
+  @@map("treatment_records")
+}
+
+model Message {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  sender_id   String   @db.VarChar(36)
+  receiver_id String?  @db.VarChar(36) // Null if sent to salon generally
+  salon_id    String?  @db.VarChar(36) // Null if admin message
+  subject     String?  @db.VarChar(255)
+  body        String   @db.Text
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  
+  sender      User     @relation("MessageSender", fields: [sender_id], references: [id], onDelete: Cascade)
+  receiver    User?    @relation("MessageReceiver", fields: [receiver_id], references: [id], onDelete: SetNull)
+  salon       Salon?   @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@index([sender_id])
+  @@index([receiver_id])
+  @@index([salon_id])
+  @@map("messages")
+}
+
+model Notification {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  user_id     String   @db.VarChar(36)
+  title       String   @db.VarChar(255)
+  body        String   @db.Text
+  type        String?  @db.VarChar(50)
+  link        String?  @db.VarChar(500)
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("notifications")
+}
+
+model ContactEnquiry {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  name        String   @db.VarChar(255)
+  email       String   @db.VarChar(255)
+  phone       String?  @db.VarChar(50)
+  subject     String?  @db.VarChar(255)
+  message     String   @db.Text
+  inquiry_type String? @db.VarChar(50)
+  status      EnquiryStatus @default(new)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+}
+
+enum EnquiryStatus {
+  new
+  read
+  resolved
+}
+
+model InventoryItem {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  salon_id    String   @db.VarChar(36)
+  name        String   @db.VarChar(255)
+  sku         String?  @db.VarChar(100)
+  stock       Int      @default(0)
+  price       Decimal  @db.Decimal(10,2)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  salon       Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+
+  @@index([salon_id])
+  @@map("inventory_items")
+}
+
+model PlatformProduct {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  name            String   @db.VarChar(255)
+  description     String?  @db.Text
+  features        String?  @db.Text
+  sku             String?  @unique @db.VarChar(100)
+  price           Decimal  @db.Decimal(10,2)
+  discount        Decimal? @default(0) @db.Decimal(10,2)
+  stock_quantity  Int?     @default(0)
+  image_url       String?  @db.Text
+  image_url_2     String?  @db.Text
+  image_url_3     String?  @db.Text
+  image_url_4     String?  @db.Text
+  category        String?  @db.VarChar(100)
+  brand           String?  @db.VarChar(255)
+  target_audience String?  @default("both") @db.VarChar(50)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now()) @db.Timestamp(0)
+  updated_at      DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  purchases       ProductPurchase[]
+
+  @@map("platform_products")
+}
+
+model ProductPurchase {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  salon_id    String   @db.VarChar(36)
+  product_id  String   @db.VarChar(36)
+  quantity    Int      @default(1)
+  total_price Decimal  @db.Decimal(10,2)
+  status      PurchaseStatus @default(pending)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  salon       Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  product     PlatformProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([salon_id])
+  @@index([product_id])
+  @@map("product_purchases")
+}
+
+enum PurchaseStatus {
+  pending
+  completed
+  cancelled
+}
+
+model Review {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  user_id     String   @db.VarChar(36)
+  salon_id    String   @db.VarChar(36)
+  booking_id  String?  @unique @db.VarChar(36)
+  rating      Int      // 1 to 5
+  comment     String?  @db.Text
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  salon       Salon    @relation(fields: [salon_id], references: [id], onDelete: Cascade)
+  booking     Booking? @relation(fields: [booking_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id])
+  @@index([salon_id])
+  @@map("reviews")
+}
+
+model KnowledgeBaseArticle {
+  id          String   @id @default(uuid()) @db.VarChar(36)
+  title       String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(255)
+  content     String   @db.Text
+  category    String?  @db.VarChar(100)
+  is_published Boolean @default(true)
+  created_at  DateTime @default(now()) @db.Timestamp(0)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([category])
+  @@map("kb_articles")
+}
+
+model StaffAttendance {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  staff_id   String   @db.VarChar(36)
+  salon_id   String   @db.VarChar(36)
+  check_in   DateTime @default(now()) @db.Timestamp(0)
+  check_out  DateTime? @db.Timestamp(0)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+
+  @@index([staff_id])
+  @@index([salon_id])
+  @@map("staff_attendance")
+}
+
+model StaffLeave {
+  id         String      @id @default(uuid()) @db.VarChar(36)
+  staff_id   String      @db.VarChar(36)
+  salon_id   String      @db.VarChar(36)
+  start_date DateTime    @db.Date
+  end_date   DateTime    @db.Date
+  leave_type String      @default("casual") @db.VarChar(50)
+  reason     String?     @db.Text
+  status     LeaveStatus @default(pending)
+  created_at DateTime    @default(now()) @db.Timestamp(0)
+  updated_at DateTime    @default(now()) @updatedAt @db.Timestamp(0)
+
+  @@index([staff_id])
+  @@index([salon_id])
+  @@map("staff_leaves")
+}
+
+enum LeaveStatus {
+  pending
+  approved
+  rejected
+}
+
+model StaffService {
+  id         String   @id @default(uuid()) @db.VarChar(36)
+  staff_id   String   @db.VarChar(36)
+  service_id String   @db.VarChar(36)
+  created_at DateTime @default(now()) @db.Timestamp(0)
+
+  @@unique([staff_id, service_id])
+  @@index([staff_id])
+  @@map("staff_services")
+}
