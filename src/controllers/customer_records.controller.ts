@@ -148,10 +148,12 @@ export class CustomerRecordsController {
         user_id = booking.user_id;
       }
 
-      let hasAccess = false;
-      const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
-      const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
-      if (role || admin) hasAccess = true;
+      let hasAccess = user_id === current_user;
+      if (!hasAccess) {
+        const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
+        const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
+        if (role || admin) hasAccess = true;
+      }
 
       if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
 
