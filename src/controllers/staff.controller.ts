@@ -143,6 +143,17 @@ export class StaffController {
         orderBy: { booking_time: 'asc' }
       });
 
+      const upcomingBookings = await prisma.booking.findMany({
+        where: {
+          staff_id: staff.id,
+          booking_date: { gte: tomorrow },
+          status: { not: 'cancelled' }
+        },
+        include: { service: { select: { name: true } } },
+        orderBy: [{ booking_date: 'asc' }, { booking_time: 'asc' }],
+        take: 10
+      });
+
       // Basic Stats (Current Month)
       const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
       
@@ -185,6 +196,7 @@ export class StaffController {
         staff,
         attendance,
         today_bookings: todayBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
+        upcoming_bookings: upcomingBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
         unread_messages: unreadMessagesCount,
         stats: {
           revenue: grossRevenue,
