@@ -52,16 +52,33 @@ export class SearchController {
               ]
           },
           include: { user: { include: { profile: true } } },
-          distinct: ['user_id'],
-          take: 5
+          orderBy: { booking_date: 'desc' },
+          take: 50
       });
 
-      const customers = bookingsForCustomers
-        .map(b => ({
-          id: b.user_id,
-          name: b.notes || b.user?.profile?.full_name || 'Unknown',
-          email: b.user?.email || ''
-      }));
+      const uniqueCustomersMap = new Map();
+      for (const b of bookingsForCustomers) {
+          let name = b.user?.profile?.full_name;
+          if (b.notes?.includes('Manual Customer:')) {
+             const walkInMatch = b.notes.match(/(?:Walk-in|Manual Customer):\s*([^|,#\n]+)/);
+             if (walkInMatch && walkInMatch[1].trim()) name = walkInMatch[1].trim();
+             else name = b.notes;
+          }
+          if (!name) name = b.user?.email || 'Unknown';
+          
+          const email = b.user?.email || '';
+          const key = name.toLowerCase() + email.toLowerCase();
+          
+          if (!uniqueCustomersMap.has(key)) {
+              uniqueCustomersMap.set(key, {
+                  id: b.user_id,
+                  name,
+                  email
+              });
+          }
+      }
+
+      const customers = Array.from(uniqueCustomersMap.values()).slice(0, 5);
 
       const services = await prisma.service.findMany({
           where: {
