@@ -46,7 +46,9 @@ export class SearchController {
               salon_id: String(salon_id),
               OR: [
                   { user: { profile: { full_name: { contains: String(q) } } } },
-                  { user: { email: { contains: String(q) } } }
+                  { user: { email: { contains: String(q) } } },
+                  { user: { profile: { phone: { contains: String(q) } } } },
+                  { notes: { contains: String(q) } }
               ]
           },
           include: { user: { include: { profile: true } } },
@@ -55,11 +57,10 @@ export class SearchController {
       });
 
       const customers = bookingsForCustomers
-        .filter(b => b.user)
         .map(b => ({
-          id: b.user.id,
-          name: b.user.profile?.full_name || 'Unknown',
-          email: b.user.email
+          id: b.user_id,
+          name: b.notes || b.user?.profile?.full_name || 'Unknown',
+          email: b.user?.email || ''
       }));
 
       const services = await prisma.service.findMany({
@@ -77,6 +78,8 @@ export class SearchController {
               salon_id: String(salon_id),
               OR: [
                   { user: { profile: { full_name: { contains: String(q) } } } },
+                  { user: { profile: { phone: { contains: String(q) } } } },
+                  { notes: { contains: String(q) } },
                   { service: { name: { contains: String(q) } } }
               ]
           },
@@ -89,7 +92,7 @@ export class SearchController {
 
       const formattedAppointments = appointments.map(apt => ({
           id: apt.id,
-          customer_name: apt.user?.profile?.full_name || 'Walk-in',
+          customer_name: apt.notes || apt.user?.profile?.full_name || 'Walk-in',
           service_name: apt.service?.name,
           date: apt.booking_time
       }));
