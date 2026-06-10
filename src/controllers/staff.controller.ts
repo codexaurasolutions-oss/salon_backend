@@ -121,6 +121,16 @@ export class StaffController {
 
       if (!staff) return res.status(404).json({ error: 'Staff profile not found' });
 
+      // Fetch Assigned Services (Skills)
+      const staffServices = await prisma.staffService.findMany({
+        where: { staff_id: staff.id },
+      });
+      
+      const assigned_services = await prisma.service.findMany({
+        where: { id: { in: staffServices.map(s => s.service_id) } },
+        select: { id: true, name: true, duration_minutes: true, price: true, category: true }
+      });
+
       // Active Attendance
       const attendance = await prisma.staffAttendance.findFirst({
         where: { staff_id: staff.id, check_out: null },
@@ -139,7 +149,7 @@ export class StaffController {
           booking_date: { gte: today, lt: tomorrow },
           status: { not: 'cancelled' }
         },
-        include: { service: { select: { name: true } } },
+        include: { service: { select: { name: true } }, treatment_records: true },
         orderBy: { booking_time: 'asc' }
       });
 
@@ -193,7 +203,7 @@ export class StaffController {
       });
 
       res.json({
-        staff,
+        staff: { ...staff, assigned_services },
         attendance,
         today_bookings: todayBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
         upcoming_bookings: upcomingBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
