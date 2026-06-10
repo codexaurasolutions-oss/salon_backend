@@ -68,6 +68,10 @@ model Salon {
   gst_number            String?   @db.VarChar(50)
   logo_url              String?   @db.Text
   cover_image_url       String?   @db.Text
+  logo_public_id        String?   @db.Text
+  cover_image_public_id String?   @db.Text
+  upi_id                String?   @db.VarChar(100)
+  bank_details          String?   @db.Text
   business_hours        Json?
   tax_settings          Json?
   notification_settings Json?
@@ -634,6 +638,8 @@ model ContactEnquiry {
   inquiry_type String? @db.VarChar(50)
   status      EnquiryStatus @default(new)
   created_at  DateTime @default(now()) @db.Timestamp(0)
+
+  @@map("contact_enquiries")
 }
 
 enum EnquiryStatus {

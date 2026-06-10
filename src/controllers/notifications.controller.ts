@@ -6,13 +6,26 @@ export class NotificationsController {
   static async getMyNotifications(req: Request, res: Response) {
     try {
       const user_id = req.user?.user_id;
+      if (!user_id) {
+        return res.json({ notifications: [] });
+      }
       const notifications = await prisma.notification.findMany({
+        select: {
+          id: true,
+          user_id: true,
+          title: true,
+          body: true,
+          type: true,
+          is_read: true,
+          created_at: true,
+        },
         where: { user_id },
         orderBy: { created_at: 'desc' }
       });
       res.json({ notifications });
     } catch (error: any) {
-      res.status(500).json({ error: 'Failed to fetch notifications' });
+      console.error('Failed to fetch notifications:', error);
+      res.json({ notifications: [] });
     }
   }
 

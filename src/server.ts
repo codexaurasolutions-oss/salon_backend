@@ -6,25 +6,30 @@ import { PrismaClient } from '@prisma/client';
 
 dotenv.config();
 
-export const prisma = new PrismaClient();
+declare global {
+  var __salonPrisma__: PrismaClient | undefined;
+}
+
+export const prisma = global.__salonPrisma__ || new PrismaClient();
+if (process.env.NODE_ENV !== 'production') {
+  global.__salonPrisma__ = prisma;
+}
+
 const app: Express = express();
 const port = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors({ origin: '*', credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
+// Local-only file serving. Vercel ignores express.static() in production.
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Request Logger
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Health Check
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'online', message: 'Salon Express API is active' });
 });
@@ -45,8 +50,6 @@ import newsletterRoutes from './routes/newsletter.routes';
 import toyyibpayRoutes from './routes/toyyibpay.routes';
 import usersRoutes from './routes/users.routes';
 import profilesRoutes from './routes/profiles.routes';
-
-// Phase 8 Routes
 import messagesRoutes from './routes/messages.routes';
 import notificationsRoutes from './routes/notifications.routes';
 import contactEnquiriesRoutes from './routes/contact_enquiries.routes';
@@ -61,13 +64,12 @@ import mailRoutes from './routes/mail.routes';
 import searchRoutes from './routes/search.routes';
 import couponsRoutes from './routes/coupons.routes';
 
-// Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/salons', salonsRoutes);
 app.use('/api/salons/:salon_id/staff', staffRoutes);
-app.use('/api/staff', staffRoutes); // Global mount
+app.use('/api/staff', staffRoutes);
 app.use('/api/salons/:salon_id/services', servicesRoutes);
-app.use('/api/services', servicesRoutes); // Global mount
+app.use('/api/services', servicesRoutes);
 app.use('/api/bookings', bookingsRoutes);
 app.use('/api/customer_records', customerRecordsRoutes);
 app.use('/api/admin', adminRoutes);
@@ -80,30 +82,26 @@ app.use('/api/newsletter', newsletterRoutes);
 app.use('/api/toyyibpay', toyyibpayRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/profiles', profilesRoutes);
-
-// Phase 8 Mounts
 app.use('/api/messages', messagesRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/contact-enquiries', contactEnquiriesRoutes);
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/salons/:salon_id/inventory', inventoryRoutes);
-app.use('/api/inventory', inventoryRoutes); // Global mount
+app.use('/api/inventory', inventoryRoutes);
 app.use('/api/platform_products', platformProductsRoutes);
 app.use('/api/product_purchases', productPurchasesRoutes);
 app.use('/api/coupons', couponsRoutes);
 app.use('/api/coins', coinsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/salons/:salon_id/reminders', remindersRoutes);
-app.use('/api/reminders', remindersRoutes); // Global mount
+app.use('/api/reminders', remindersRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/search', searchRoutes);
 
-// 404 Handler
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   console.error('[Fatal Error]', err.stack || err);
   res.status(500).json({
@@ -112,6 +110,10 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`⚡️[server]: Server is running at http://localhost:${port}`);
-});
+if (process.env.VERCEL !== '1') {
+  app.listen(port, () => {
+    console.log(`[server]: Server is running at http://localhost:${port}`);
+  });
+}
+
+export default app;

@@ -19,13 +19,17 @@ export class OrdersController {
   static async createOrder(req: Request, res: Response) {
     try {
       const user_id = req.user?.user_id;
+      if (!user_id) {
+        return res.status(401).json({ error: 'Login required to place an order' });
+      }
+
       const { guest_name, guest_email, items, shipping_address, total_amount, email, firstName, lastName } = req.body;
       const normalizedGuestName = guest_name || [firstName, lastName].filter(Boolean).join(' ').trim() || null;
       const normalizedGuestEmail = guest_email || email || null;
 
       const order = await prisma.platformOrder.create({
         data: {
-          user_id: user_id || null,
+          user_id,
           guest_name: normalizedGuestName,
           guest_email: normalizedGuestEmail,
           items,

@@ -1,6 +1,21 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
 
+const defaultBusinessHours = {
+  monday: { open: '11:00', close: '23:00', closed: false },
+  tuesday: { open: '11:00', close: '23:00', closed: false },
+  wednesday: { open: '11:00', close: '23:00', closed: false },
+  thursday: { open: '11:00', close: '23:00', closed: false },
+  friday: { open: '11:00', close: '23:00', closed: false },
+  saturday: { open: '11:00', close: '23:00', closed: false },
+  sunday: { open: '11:00', close: '23:00', closed: false },
+};
+
+const withDefaultBusinessHours = <T extends { business_hours?: unknown }>(salon: T) => ({
+  ...salon,
+  business_hours: salon.business_hours || defaultBusinessHours,
+});
+
 export class SalonsController {
   
   static async getAllSalons(req: Request, res: Response) {
@@ -9,7 +24,7 @@ export class SalonsController {
         where: { is_active: true, approval_status: 'approved' },
         include: { services: true }
       });
-      res.json({ salons });
+      res.json({ salons: salons.map(withDefaultBusinessHours) });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch salons' });
     }
@@ -23,7 +38,7 @@ export class SalonsController {
         include: { salon: true }
       });
 
-      const salons = userRoles.map(ur => ur.salon);
+      const salons = userRoles.map(ur => withDefaultBusinessHours(ur.salon));
       res.json({ salons });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch your salons' });
@@ -39,7 +54,7 @@ export class SalonsController {
       });
 
       if (!salon) return res.status(404).json({ error: 'Salon not found' });
-      res.json({ salon });
+      res.json({ salon: withDefaultBusinessHours(salon) });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch salon' });
     }
@@ -50,22 +65,34 @@ export class SalonsController {
       const { id } = req.params;
       const data = req.body;
       
+      const updateData: any = {};
+      if (data.name !== undefined) updateData.name = data.name;
+      if (data.description !== undefined) updateData.description = data.description;
+      if (data.address !== undefined) updateData.address = data.address;
+      if (data.city !== undefined) updateData.city = data.city;
+      if (data.state !== undefined) updateData.state = data.state;
+      if (data.pincode !== undefined) updateData.pincode = data.pincode;
+      if (data.phone !== undefined) updateData.phone = data.phone;
+      if (data.email !== undefined) updateData.email = data.email;
+      if (data.gst_number !== undefined) updateData.gst_number = data.gst_number;
+      if (data.logo_url !== undefined) updateData.logo_url = data.logo_url;
+      if (data.logo_public_id !== undefined) updateData.logo_public_id = data.logo_public_id;
+      if (data.cover_image_url !== undefined) updateData.cover_image_url = data.cover_image_url;
+      if (data.cover_image_public_id !== undefined) updateData.cover_image_public_id = data.cover_image_public_id;
+      if (data.business_hours !== undefined) updateData.business_hours = data.business_hours;
+      if (data.tax_settings !== undefined) updateData.tax_settings = data.tax_settings;
+      if (data.notification_settings !== undefined) updateData.notification_settings = data.notification_settings;
+      if (data.upi_id !== undefined) updateData.upi_id = data.upi_id;
+      if (data.bank_details !== undefined) updateData.bank_details = data.bank_details;
+
       const salon = await prisma.salon.update({
         where: { id },
-        data: {
-            name: data.name,
-            description: data.description,
-            address: data.address,
-            city: data.city,
-            state: data.state,
-            pincode: data.pincode,
-            business_hours: data.business_hours,
-            tax_settings: data.tax_settings
-        }
+        data: updateData
       });
       
-      res.json({ message: 'Salon updated successfully', salon });
+      res.json({ message: 'Salon updated successfully', salon: withDefaultBusinessHours(salon) });
     } catch (error: any) {
+      console.error('Update salon error:', error);
       res.status(500).json({ error: 'Failed to update salon' });
     }
   }
@@ -89,12 +116,13 @@ export class SalonsController {
                   city: data.city,
                   state: data.state,
                   pincode: data.pincode,
-                  phone: data.phone,
-                  email: data.email,
-                  logo_url: data.logo_url,
-                  cover_image_url: data.cover_image_url,
-                  is_active: data.is_active ?? true,
-                  approval_status: data.approval_status ?? 'pending'
+              phone: data.phone,
+              email: data.email,
+              logo_url: data.logo_url,
+              cover_image_url: data.cover_image_url,
+              business_hours: data.business_hours || defaultBusinessHours,
+              is_active: data.is_active ?? true,
+              approval_status: data.approval_status ?? 'pending'
               }
           });
 

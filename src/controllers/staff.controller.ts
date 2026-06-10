@@ -324,7 +324,9 @@ export class StaffController {
           data: {
             email,
             password_hash: hash,
-            profile: { create: { full_name: data.display_name, user_type: 'staff' } }
+            // Roles drive staff access; keeping the legacy-compatible profile type
+            // avoids enum mismatches on older production schemas.
+            profile: { create: { full_name: data.display_name, user_type: 'customer' } }
           }
         });
       } else if (data.password) {
