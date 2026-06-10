@@ -189,6 +189,21 @@ export class ToyyibPayController {
               where: { transaction_id: billcode },
               data: { status: 'completed', paid_at: new Date() }
           });
+
+          if (refno) {
+              const order = await prisma.platformOrder.findUnique({ where: { id: refno } });
+              if (order) {
+                  await prisma.platformOrder.update({ where: { id: refno }, data: { status: 'paid' } });
+              } else {
+                  const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
+                  if (bookingIds.length > 0) {
+                      await prisma.booking.updateMany({
+                          where: { id: { in: bookingIds } },
+                          data: { status: 'confirmed' }
+                      });
+                  }
+              }
+          }
       } else {
           await prisma.platformPayment.updateMany({
             where: { transaction_id: billcode },
@@ -198,6 +213,7 @@ export class ToyyibPayController {
       
       res.send('OK');
     } catch (error: any) {
+      console.error('ToyyibPay Callback Error:', error);
       res.status(500).send('Error');
     }
   }

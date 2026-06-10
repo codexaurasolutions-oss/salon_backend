@@ -604,15 +604,31 @@ export class AdminController {
         include: { profile: true }
       });
       const userMap = new Map(users.map((u) => [u.id, u]));
+
+      // Fetch successful payments that might be linked to these orders
+      const successfulPayments = await prisma.platformPayment.findMany({
+          where: { status: 'completed' }
+      });
+      
+      const paidOrderIds = new Set(successfulPayments.map(p => {
+          if (p.notes?.includes('ref: ')) return p.notes.split('ref: ')[1].trim();
+          return null;
+      }).filter(Boolean));
+
       const flattened = orders.map((o) => {
         const u = o.user_id ? userMap.get(o.user_id) : null;
         const profile = u?.profile;
+        const isPaid = o.status !== 'placed' || paidOrderIds.has(o.id);
+        
         return {
           ...o,
+          status: (o.status === 'placed' && isPaid) ? 'paid' : o.status,
+          is_paid: isPaid,
           customer_name: profile?.full_name || o.guest_name || u?.email || 'Guest',
           customer_email: u?.email || o.guest_email || '',
         };
-      });
+      }).filter(o => o.is_paid); // Only show paid orders
+
       res.json({ orders: flattened });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch orders' });
