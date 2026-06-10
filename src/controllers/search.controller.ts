@@ -32,4 +32,76 @@ export class SearchController {
       res.status(500).json({ error: 'Failed to perform search' });
     }
   }
+
+  static async dashboardSearch(req: Request, res: Response) {
+    try {
+      const { q, salon_id } = req.query;
+      
+      if (!q || typeof q !== 'string' || q.length < 2 || !salon_id) {
+          return res.json({ customers: [], appointments: [], services: [] });
+      }
+
+      const bookingsForCustomers = await prisma.booking.findMany({
+          where: {
+              salon_id: String(salon_id),
+              OR: [
+                  { user: { profile: { full_name: { contains: String(q) } } } },
+                  { user: { email: { contains: String(q) } } }
+              ]
+          },
+          include: { user: { include: { profile: true } } },
+          distinct: ['user_id'],
+          take: 5
+      });
+
+      const customers = bookingsForCustomers
+        .filter(b => b.user)
+        .map(b => ({
+          id: b.user.id,
+          name: b.user.profile?.full_name || 'Unknown',
+          email: b.user.email
+      }));
+
+      const services = await prisma.service.findMany({
+          where: {
+              salon_id: String(salon_id),
+              OR: [
+                  { name: { contains: String(q) } }
+              ]
+          },
+          take: 5
+      });
+
+      const appointments = await prisma.booking.findMany({
+          where: {
+              salon_id: String(salon_id),
+              OR: [
+                  { user: { profile: { full_name: { contains: String(q) } } } },
+                  { service: { name: { contains: String(q) } } }
+              ]
+          },
+          include: {
+              user: { include: { profile: true } },
+              service: true
+          },
+          take: 5
+      });
+
+      const formattedAppointments = appointments.map(apt => ({
+          id: apt.id,
+          customer_name: apt.user?.profile?.full_name || 'Walk-in',
+          service_name: apt.service?.name,
+          date: apt.booking_time
+      }));
+
+      res.json({
+          customers,
+          services,
+          appointments: formattedAppointments
+      });
+    } catch (error: any) {
+        console.error('Dashboard Search Error:', error);
+        res.status(500).json({ error: 'Failed to perform dashboard search' });
+    }
+  }
 }
