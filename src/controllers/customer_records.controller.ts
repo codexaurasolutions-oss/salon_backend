@@ -67,8 +67,7 @@ export class CustomerRecordsController {
       if (!hasAccess) {
         const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
         const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
-        const isOwner = await prisma.salon.findFirst({ where: { id: salon_id, owner_id: current_user } });
-        if (role || admin || isOwner) hasAccess = true;
+        if (role || admin) hasAccess = true;
       }
       if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
 
@@ -153,8 +152,7 @@ export class CustomerRecordsController {
       if (!hasAccess) {
         const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
         const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
-        const isOwner = await prisma.salon.findFirst({ where: { id: salon_id, owner_id: current_user } });
-        if (role || admin || isOwner) hasAccess = true;
+        if (role || admin) hasAccess = true;
       }
 
       if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
