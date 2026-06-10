@@ -10,6 +10,6 @@ router.use(authenticateToken);
 router.get('/roles', UsersController.getRoles);
 router.get('/me', UsersController.getMe);
 router.put('/me', UsersController.updateMe);
-router.put('/:id', requireRole(['super_admin', 'admin']), UsersController.updateUser);
+router.put('/:id', authenticateToken, UsersController.updateUser);
 
 export default router;
