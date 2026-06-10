@@ -70,7 +70,7 @@ export class UsersController {
       const current_user = req.user?.user_id;
       const user_type = req.user?.role;
 
-      if (current_user !== id && user_type !== 'super_admin' && user_type !== 'admin' && user_type !== 'salon_owner' && user_type !== 'salon_staff') {
+      if (current_user !== id && user_type === 'customer') {
         return res.status(403).json({ error: 'Forbidden. You do not have permission to update this user.' });
       }
 
