@@ -5,30 +5,88 @@ export class SearchController {
   
   static async searchSalons(req: Request, res: Response) {
     try {
-      const { q, city, category } = req.query;
+      const { q } = req.query;
       
-      const filters: any = { is_active: true, approval_status: 'approved' };
-      
-      if (q) {
-          filters.OR = [
-              { name: { contains: String(q) } },
-              { description: { contains: String(q) } }
-          ];
-      }
-      
-      if (city) {
-          filters.city = { contains: String(city) };
+      if (!q || typeof q !== 'string' || q.trim().length < 2) {
+          return res.json({ suggestions: [], products: [], salons: [], services: [] });
       }
 
+      const queryStr = String(q).trim();
+
+      // 1. Search Salons
       const salons = await prisma.salon.findMany({
-          where: filters,
-          include: {
-              services: category ? { where: { category: String(category) } } : false
-          }
+          where: {
+              is_active: true,
+              approval_status: 'approved',
+              OR: [
+                  { name: { contains: queryStr } },
+                  { description: { contains: queryStr } },
+                  { city: { contains: queryStr } },
+                  { state: { contains: queryStr } }
+              ]
+          },
+          take: 10
       });
 
-      res.json({ results: salons });
+      // 2. Search Products
+      const products = await prisma.platformProduct.findMany({
+          where: {
+              is_active: true,
+              OR: [
+                  { name: { contains: queryStr } },
+                  { description: { contains: queryStr } },
+                  { category: { contains: queryStr } },
+                  { brand: { contains: queryStr } }
+              ]
+          },
+          take: 10
+      });
+
+      // 3. Search Services
+      const services = await prisma.service.findMany({
+          where: {
+              is_active: true,
+              OR: [
+                  { name: { contains: queryStr } },
+                  { description: { contains: queryStr } },
+                  { category: { contains: queryStr } }
+              ]
+          },
+          include: {
+              salon: true
+          },
+          take: 10
+      });
+
+      // Format services to match what frontend expects
+      const formattedServices = services.map(srv => ({
+          id: srv.id,
+          name: srv.name,
+          price: srv.price,
+          image_url: srv.image_url,
+          salon_name: srv.salon?.name || 'Salon'
+      }));
+
+      // 4. Generate Suggestions
+      const suggestionsSet = new Set<string>();
+      
+      // Add first few matching salon names
+      salons.slice(0, 3).forEach(s => suggestionsSet.add(s.name));
+      // Add first few matching product names
+      products.slice(0, 3).forEach(p => suggestionsSet.add(p.name));
+      // Add first few matching service names
+      services.slice(0, 3).forEach(s => suggestionsSet.add(s.name));
+      
+      const suggestions = Array.from(suggestionsSet).slice(0, 5);
+
+      res.json({
+          suggestions,
+          products,
+          salons,
+          services: formattedServices
+      });
     } catch (error: any) {
+      console.error('Public Search Error:', error);
       res.status(500).json({ error: 'Failed to perform search' });
     }
   }
@@ -38,7 +96,7 @@ export class SearchController {
       const { q, salon_id } = req.query;
       
       if (!q || typeof q !== 'string' || q.length < 2 || !salon_id) {
-          return res.json({ customers: [], appointments: [], services: [] });
+          return res.json({ suggestions: [], customers: [], appointments: [], services: [] });
       }
 
       const bookingsForCustomers = await prisma.booking.findMany({
@@ -115,6 +173,7 @@ export class SearchController {
       }));
 
       res.json({
+          suggestions: [],
           customers,
           services,
           appointments: formattedAppointments

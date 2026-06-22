@@ -180,7 +180,8 @@ export class CustomerRecordsController {
       };
 
       if (targetId) {
-        await prisma.treatmentRecord.update({ where: { id: targetId }, data: payload });
+        const { booking_id, user_id, salon_id, ...updatePayload } = payload;
+        await prisma.treatmentRecord.update({ where: { id: targetId }, data: updatePayload });
       } else {
         await prisma.treatmentRecord.create({ data: payload });
       }

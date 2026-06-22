@@ -7,7 +7,12 @@ export class OffersController {
     try {
       const salon_id = req.query.salon_id as string | undefined;
       const where: any = { is_active: true };
-      if (salon_id) where.salon_id = salon_id;
+      if (salon_id) {
+        where.OR = [
+          { salon_id: salon_id },
+          { salon_id: null }
+        ];
+      }
       const offers = await prisma.platformOffer.findMany({ where });
       res.json(offers);
     } catch (error: any) {

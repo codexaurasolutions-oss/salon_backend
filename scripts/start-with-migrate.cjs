@@ -1,6 +1,11 @@
 const { spawnSync, spawn } = require("child_process");
 
-const failedMigrationNames = [
+const allMigrations = [
+  "20260603072631_init",
+  "20260603074921_add_product_fields",
+  "20260603101618_add_salon_id_to_offers",
+  "20260603130725_add_user_booking_to_platform_payments",
+  "20260603134649_add_booking_relation_to_platform_payments",
   "20260604162000_patch_existing_mysql_schema",
   "20260605102000_fix_notification_and_profile_schema",
 ];
@@ -13,31 +18,26 @@ function run(command, args, options = {}) {
   });
 }
 
-function resolveFailedMigrations() {
-  for (const migrationName of failedMigrationNames) {
-    const result = run("npx", [
-      "prisma",
-      "migrate",
-      "resolve",
-      "--rolled-back",
-      migrationName,
-    ]);
+function baseline() {
+  const check = run("npx", ["prisma", "migrate", "deploy"]);
+  if (check.status === 0) return;
 
-    if (result.status === 0) {
-      continue;
-    }
+  console.log("[startup] migrate deploy failed, attempting baseline...");
 
-    // If the migration is not failed anymore, continue and let migrate deploy handle the rest.
-    console.log(
-      `[startup] Skipping resolve for ${migrationName}; continuing with migrate deploy.`
-    );
+  for (const name of allMigrations) {
+    run("npx", ["prisma", "migrate", "resolve", "--applied", name]);
   }
 }
 
 function deployMigrations() {
-  const result = run("npx", ["prisma", "migrate", "deploy"]);
-  if (result.status !== 0) {
-    process.exit(result.status || 1);
+  console.log("[startup] Syncing database schema (preserving existing data)...");
+  const push = run("npx", ["prisma", "db", "push"]);
+  if (push.status !== 0) {
+    console.log("[startup] db push failed, attempting migrate deploy...");
+    const migrate = run("npx", ["prisma", "migrate", "deploy"]);
+    if (migrate.status !== 0) {
+      console.log("[startup] All schema sync methods failed. Server will start but database queries may fail.");
+    }
   }
 }
 
@@ -60,7 +60,7 @@ function startServer() {
   });
 }
 
-resolveFailedMigrations();
+baseline();
 deployMigrations();
 bootstrapDemoData();
 startServer();
