@@ -25,10 +25,15 @@ const allowedOrigins = process.env.CORS_ORIGIN
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const isNoamskinDomain = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*noamskin\.com$/.test(origin);
+      if (allowedOrigins.includes(origin) || isNoamskinDomain) {
         callback(null, true);
       } else {
-        callback(new Error('Not allowed by CORS'));
+        callback(new Error(`Not allowed by CORS: ${origin}`));
       }
     },
     credentials: true,

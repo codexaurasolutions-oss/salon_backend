@@ -214,8 +214,8 @@ export class AuthController {
 
       const user = await prisma.user.findUnique({ where: { email } });
       if (!user) {
-        return res.json({
-          message: 'If an account exists with this email, reset instructions have been generated.',
+        return res.status(404).json({
+          error: 'No account exists with this email address.',
         });
       }
 
