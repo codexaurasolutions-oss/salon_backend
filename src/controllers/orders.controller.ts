@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
+import { EmailService } from '../services/email.service';
 
 export class OrdersController {
   
@@ -25,7 +26,14 @@ export class OrdersController {
 
       const { guest_name, guest_email, items, shipping_address, total_amount, email, firstName, lastName } = req.body;
       const normalizedGuestName = guest_name || [firstName, lastName].filter(Boolean).join(' ').trim() || null;
-      const normalizedGuestEmail = guest_email || email || null;
+      let normalizedGuestEmail = guest_email || email || null;
+
+      if (!normalizedGuestEmail && user_id) {
+        const user = await prisma.user.findUnique({ where: { id: user_id } });
+        if (user?.email) {
+          normalizedGuestEmail = user.email;
+        }
+      }
 
       const order = await prisma.platformOrder.create({
         data: {
@@ -38,6 +46,11 @@ export class OrdersController {
           status: 'placed'
         }
       });
+
+      // Dispatch Order Confirmation & Invoice Email asynchronously
+      if (normalizedGuestEmail) {
+        EmailService.sendOrderReceiptEmail(order, normalizedGuestEmail, normalizedGuestName || undefined);
+      }
       
       res.status(201).json({ message: 'Order placed successfully', order });
     } catch (error: any) {

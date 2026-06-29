@@ -18,9 +18,11 @@ if (process.env.NODE_ENV !== 'production') {
 const app: Express = express();
 const port = process.env.PORT || 5000;
 
-const allowedOrigins = process.env.CORS_ORIGIN
+const envOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'];
+  : [];
+const defaultOrigins = ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'];
+const allowedOrigins = Array.from(new Set([...defaultOrigins, ...envOrigins]));
 
 app.use(
   cors({
@@ -30,7 +32,9 @@ app.use(
         return;
       }
       const isNoamskinDomain = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*noamskin\.com$/.test(origin);
-      if (allowedOrigins.includes(origin) || isNoamskinDomain) {
+      const isLocalhost = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/.test(origin);
+      
+      if (allowedOrigins.includes(origin) || isNoamskinDomain || isLocalhost) {
         callback(null, true);
       } else {
         callback(new Error(`Not allowed by CORS: ${origin}`));

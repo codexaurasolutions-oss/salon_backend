@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
+import { EmailService } from '../services/email.service';
 
 export class ToyyibPayController {
   
@@ -33,7 +34,7 @@ export class ToyyibPayController {
           customerEmail = bookings[0].user?.email || customerEmail;
           customerPhone = bookings[0].user?.profile?.phone || customerPhone;
           
-          const bookingTotal = bookings.reduce((sum, booking) => {
+          const bookingTotal = bookings.reduce((sum: number, booking: any) => {
             return sum + Number(booking.price_paid || booking.service?.price || 0);
           }, 0);
 
@@ -193,7 +194,10 @@ export class ToyyibPayController {
           if (refno) {
               const order = await prisma.platformOrder.findUnique({ where: { id: refno } });
               if (order) {
-                  await prisma.platformOrder.update({ where: { id: refno }, data: { status: 'paid' } });
+                  const updatedOrder = await prisma.platformOrder.update({ where: { id: refno }, data: { status: 'paid' } });
+                  if (updatedOrder.guest_email) {
+                      EmailService.sendOrderReceiptEmail(updatedOrder, updatedOrder.guest_email, updatedOrder.guest_name || undefined);
+                  }
               } else {
                   const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
                   if (bookingIds.length > 0) {

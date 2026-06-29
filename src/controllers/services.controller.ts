@@ -39,10 +39,23 @@ export class ServicesController {
     try {
       const { id } = req.params;
       const service = await prisma.service.findUnique({
-        where: { id }
+        where: { id },
+        include: { salon: true }
       });
       if (!service) return res.status(404).json({ error: 'Service not found' });
-      res.json({ service });
+      
+      const formattedService = {
+        ...service,
+        salon_name: service.salon?.name,
+        salon_address: service.salon?.address,
+        salon_city: service.salon?.city,
+        salon_logo_url: service.salon?.logo_url,
+        salon_phone: service.salon?.phone,
+        salon_email: service.salon?.email,
+        salon_pincode: service.salon?.pincode,
+      };
+
+      res.json({ service: formattedService });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch service' });
     }
