@@ -28,7 +28,7 @@ export class ServicesController {
         select: { category: true },
         distinct: ['category']
       });
-      const categories = services.map((s: { category: string }) => s.category).filter(Boolean);
+      const categories = services.map((s: { category: string | null }) => s.category).filter(Boolean);
       res.json({ categories });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch categories' });
