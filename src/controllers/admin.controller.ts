@@ -301,7 +301,7 @@ export class AdminController {
   static async getAllPayments(req: Request, res: Response) {
     try {
       const payments = await prisma.platformPayment.findMany({
-        include: { salon: { select: { name: true } } },
+        include: { salon: { select: { name: true, email: true, address: true, phone: true } } },
         orderBy: { created_at: 'desc' },
         take: 100
       });
