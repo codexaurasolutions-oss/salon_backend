@@ -92,10 +92,16 @@ export class ToyyibPayController {
 
         if (booking_id) {
           const bookingIds = String(booking_id).split(',').map((id) => id.trim()).filter(Boolean);
-          await prisma.booking.updateMany({
-            where: { id: { in: bookingIds }, status: 'pending' },
-            data: { status: 'confirmed' }
-          });
+          if (bookingIds.length > 0) {
+            const splitAmount = resolvedAmount / bookingIds.length;
+            await prisma.booking.updateMany({
+              where: { id: { in: bookingIds }, status: 'pending' },
+              data: { 
+                status: 'confirmed',
+                price_paid: { increment: splitAmount } 
+              }
+            });
+          }
           if (isOrderPayment && successReference) {
             await prisma.platformOrder.update({
               where: { id: successReference },
@@ -199,13 +205,22 @@ export class ToyyibPayController {
                       EmailService.sendOrderReceiptEmail(updatedOrder, updatedOrder.guest_email, updatedOrder.guest_name || undefined);
                   }
               } else {
-                  const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
-                  if (bookingIds.length > 0) {
-                      await prisma.booking.updateMany({
-                          where: { id: { in: bookingIds } },
-                          data: { status: 'confirmed' }
-                      });
-                  }
+                    const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
+                    if (bookingIds.length > 0) {
+                        const payment = await prisma.platformPayment.findFirst({
+                            where: { transaction_id: billcode }
+                        });
+                        const paidAmount = Number(payment?.amount || 0);
+                        const splitAmount = paidAmount / bookingIds.length;
+
+                        await prisma.booking.updateMany({
+                            where: { id: { in: bookingIds } },
+                            data: { 
+                                status: 'confirmed',
+                                price_paid: { increment: splitAmount }
+                            }
+                        });
+                    }
               }
           }
       } else {
