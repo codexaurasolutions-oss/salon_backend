@@ -48,6 +48,12 @@ export class AdminController {
       const svcRev = serviceRevenue.reduce((sum: number, b: any) => sum + Number(b.service?.price ?? 0), 0);
       const planRev = Number(planRevenue._sum.amount ?? 0);
 
+      // Convert any BigInt values from raw SQL to Number (MySQL returns some fields as BigInt)
+      const recentActivityMapped = recentActivity.map((a: any) => ({
+        ...a,
+        created_at: a.created_at instanceof Date ? a.created_at.toISOString() : String(a.created_at),
+      }));
+
       res.json({
         total_salons: totalSalons,
         active_salons: activeSalons,
@@ -58,7 +64,7 @@ export class AdminController {
         service_revenue: svcRev,
         total_revenue: planRev + svcRev,
         today_bookings: todayBookings,
-        recent_activity: recentActivity
+        recent_activity: recentActivityMapped
       });
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch stats', detail: error.message });
@@ -89,6 +95,12 @@ export class AdminController {
       const totalRevenue = planRevenue + serviceRevenue;
       const cancellationRate = totalBookings > 0 ? Math.round((cancelledBookings / totalBookings) * 100 * 10) / 10 : 0;
 
+      // Convert BigInt COUNT values from raw SQL to Number (MySQL returns COUNT as BigInt)
+      const topSalonsMapped = topSalons.map((s: any) => ({
+        ...s,
+        count: Number(s.count),
+      }));
+
       res.json({
         reports: {
           total_revenue: totalRevenue,
@@ -97,7 +109,7 @@ export class AdminController {
           total_bookings: totalBookings,
           cancellation_rate: cancellationRate,
           new_users: newUsers,
-          top_salons: topSalons
+          top_salons: topSalonsMapped
         }
       });
     } catch (error: any) {
