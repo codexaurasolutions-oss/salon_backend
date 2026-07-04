@@ -33,7 +33,11 @@ export class BookingsController {
         // Salon filtered
         const whereClause: any = { salon_id: salon_id as string };
         if (date) whereClause.booking_date = new Date(date as string);
-        if (status) whereClause.status = status;
+        if (status) {
+          whereClause.status = status;
+        } else {
+          whereClause.status = { not: 'pending' };
+        }
         if (staff_id) whereClause.staff_id = staff_id;
         if (query_user_id) whereClause.user_id = query_user_id as string;
 
@@ -52,8 +56,15 @@ export class BookingsController {
         return res.json({ bookings: mapped });
       } else {
         // User's own bookings
+        const whereClause: any = { user_id };
+        if (status) {
+          whereClause.status = status;
+        } else {
+          whereClause.status = { not: 'pending' };
+        }
+
         const bookings = await prisma.booking.findMany({
-          where: { user_id },
+          where: whereClause,
           include: { 
             service: true, 
             staff: true,
