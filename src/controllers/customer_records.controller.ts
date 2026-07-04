@@ -161,17 +161,23 @@ export class CustomerRecordsController {
       const existing = booking_id ? await prisma.treatmentRecord.findFirst({ where: { booking_id } }) : null;
       const targetId = existing?.id || recordId;
 
-      const payload = {
-        booking_id, user_id, salon_id,
-        service_name_manual: data.service_name_manual,
-        record_date: data.record_date ? new Date(data.record_date) : undefined,
-        treatment_details: data.treatment_details,
-        products_used: data.products_used,
-        skin_reaction: data.skin_reaction,
-        improvement_notes: data.improvement_notes,
-        recommended_next_treatment: data.recommended_next_treatment,
-        post_treatment_instructions: data.post_treatment_instructions,
-        follow_up_reminder_date: data.follow_up_reminder_date ? new Date(data.follow_up_reminder_date) : undefined,
+        const parseDateSafely = (dateStr: any) => {
+          if (!dateStr || dateStr.trim() === '') return undefined;
+          const d = new Date(dateStr);
+          return isNaN(d.getTime()) ? undefined : d;
+        };
+
+        const payload = {
+          booking_id, user_id, salon_id,
+          service_name_manual: data.service_name_manual,
+          record_date: parseDateSafely(data.record_date),
+          treatment_details: data.treatment_details,
+          products_used: data.products_used,
+          skin_reaction: data.skin_reaction,
+          improvement_notes: data.improvement_notes,
+          recommended_next_treatment: data.recommended_next_treatment,
+          post_treatment_instructions: data.post_treatment_instructions,
+          follow_up_reminder_date: parseDateSafely(data.follow_up_reminder_date),
         marketing_notes: data.marketing_notes,
         before_photo_url: data.before_photo_url,
         before_photo_public_id: data.before_photo_public_id,

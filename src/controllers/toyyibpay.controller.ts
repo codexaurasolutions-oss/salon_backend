@@ -35,12 +35,12 @@ export class ToyyibPayController {
           customerPhone = bookings[0].user?.profile?.phone || customerPhone;
           
           const bookingTotal = bookings.reduce((sum: number, booking: any) => {
-            return sum + Number(booking.price_paid || booking.service?.price || 0);
+            return sum + Number(booking.service?.price || booking.price_paid || 0);
           }, 0);
 
           if (!resolvedAmount) {
             resolvedAmount = payment_type === 'deposit'
-              ? Math.max(Number((bookingTotal * 0.3).toFixed(2)), 1)
+              ? Math.min(Number(amount || 100), bookingTotal)
               : bookingTotal;
           }
         } else {
