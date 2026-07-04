@@ -149,7 +149,11 @@ export class StaffController {
           booking_date: { gte: today, lt: tomorrow },
           status: { not: 'cancelled' }
         },
-        include: { service: { select: { name: true } }, treatment_records: true },
+        include: { 
+          service: { select: { name: true } }, 
+          treatment_records: true,
+          user: { select: { email: true, profile: true } }
+        },
         orderBy: { booking_time: 'asc' }
       });
 
@@ -159,7 +163,10 @@ export class StaffController {
           booking_date: { gte: tomorrow },
           status: { not: 'cancelled' }
         },
-        include: { service: { select: { name: true } } },
+        include: { 
+          service: { select: { name: true } },
+          user: { select: { email: true, profile: true } }
+        },
         orderBy: [{ booking_date: 'asc' }, { booking_time: 'asc' }],
         take: 10
       });
@@ -202,11 +209,22 @@ export class StaffController {
         where: { receiver_id: user_id, is_read: false, salon_id: salon_id as string }
       });
 
+      const mapBooking = (b: any) => {
+        const guestMatch = b.notes?.match(/\[GUEST:\s*(.*?)\s*\|/)?.[1];
+        const rawNotesCleaned = b.notes?.replace(/\[GUEST:.*?\]/g, '') || '';
+        const name = b.full_name || b.user?.profile?.full_name || guestMatch || rawNotesCleaned || '';
+        return {
+          ...b,
+          booking_time: formatBookingTime(b.booking_time),
+          user_name: name.trim()
+        };
+      };
+
       res.json({
         staff: { ...staff, assigned_services },
         attendance,
-        today_bookings: todayBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
-        upcoming_bookings: upcomingBookings.map(b => ({ ...b, booking_time: formatBookingTime(b.booking_time) })),
+        today_bookings: todayBookings.map(mapBooking),
+        upcoming_bookings: upcomingBookings.map(mapBooking),
         unread_messages: unreadMessagesCount,
         stats: {
           revenue: grossRevenue,
