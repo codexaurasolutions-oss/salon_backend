@@ -331,7 +331,7 @@ export class BookingsController {
       const { amount } = req.body;
       const user_id = req.user?.user_id;
 
-      const booking = await prisma.booking.findUnique({ where: { id } });
+      const booking = await prisma.booking.findUnique({ where: { id }, include: { service: true } });
       if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
       // Ensure user has access
@@ -343,9 +343,18 @@ export class BookingsController {
       }
       if (!hasAccess) return res.status(403).json({ error: 'Forbidden' });
 
+      const newAmountPaid = Number(booking.price_paid || 0) + Number(amount);
+      const servicePrice = Number(booking.service?.price || 0);
+
+      const updateData: any = { price_paid: newAmountPaid };
+
+      if (servicePrice > 0 && newAmountPaid >= servicePrice && booking.status !== 'completed') {
+        updateData.status = 'completed';
+      }
+
       const updated = await prisma.booking.update({
         where: { id },
-        data: { price_paid: { increment: amount } }
+        data: updateData
       });
 
       res.json({ message: 'Payment added', booking: { ...updated, booking_time: formatBookingTime(updated.booking_time) } });
