@@ -83,7 +83,7 @@ export function generateInvoicePdf(booking: any): Promise<Buffer> {
       // From / Bill To
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#94a3b8').text('FROM', 50, 135);
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a').text(booking.salon.name, 50, 150);
-      doc.fontSize(9).font('Helvetica').fillColor('#475569').text(booking.salon.email, 50, 165);
+      doc.fontSize(9).font('Helvetica').fillColor('#475569').text(booking.salon.email === 'skinnoam@gmail.com' ? 'noamskin@gmail.com' : (booking.salon.email || 'noamskin@gmail.com'), 50, 165);
       doc.text(booking.salon.phone || '', 50, 180);
       doc.text(booking.salon.address || '', 50, 195, { width: 220 });
 
