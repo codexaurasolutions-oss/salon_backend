@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
+import { generateAndUploadInvoice } from '../services/pdf.service';
 
 function generateInvoiceNumber(): string {
   const prefix = 'INV';
@@ -78,6 +79,90 @@ export class BookingsController {
       }
     } catch (error: any) {
       res.status(500).json({ error: 'Failed to fetch bookings', detail: error.message });
+    }
+  }
+
+  static async getBookingInvoice(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+
+      const booking = await prisma.booking.findUnique({
+        where: { id },
+        include: {
+          service: true,
+          salon: true,
+          user: { include: { profile: true } },
+          staff: true,
+          platformPayments: {
+            orderBy: { created_at: 'desc' },
+            take: 1
+          }
+        }
+      });
+
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+      // Create a PlatformPayment if it doesn't exist yet (for pending/cash/other bookings)
+      let pp = booking.platformPayments?.[0];
+      if (!pp) {
+        pp = await prisma.platformPayment.create({
+          data: {
+            user_id: booking.user_id,
+            booking_id: booking.id,
+            salon_id: booking.salon_id,
+            amount: Number(booking.price_paid || booking.service?.price || 0),
+            currency: 'MYR',
+            status: booking.status === 'completed' ? 'completed' : 'pending',
+            payment_method: 'Cash',
+            transaction_id: generateInvoiceNumber(),
+            invoice_number: generateInvoiceNumber(),
+          }
+        });
+      }
+
+      const subtotal = Number(booking.service.price || 0);
+      const discount = Number(booking.discount_amount || 0);
+      const coinsUsed = Number(booking.coins_used || 0);
+      const coinValue = Number(booking.coin_currency_value || 0.1) * coinsUsed;
+      const amount = Number(booking.price_paid || booking.service.price || 0);
+
+      let pdfUrl = (pp?.invoice_url && pp.invoice_url.startsWith('http') && pp.invoice_url.includes('cloudinary') && !pp.invoice_url.includes('/image/upload/')) ? pp.invoice_url : null;
+      
+      if (!pdfUrl) {
+        try {
+          pdfUrl = await generateAndUploadInvoice(booking.id);
+        } catch (err) {
+          console.error("Failed to generate invoice on-the-fly:", err);
+        }
+      }
+
+      const invoice = {
+        id: pp?.invoice_number || `INV-${booking.id.substring(0, 8).toUpperCase()}`,
+        status: booking.status === 'completed' ? 'paid' : booking.status === 'cancelled' ? 'cancelled' : 'pending',
+        date: booking.booking_date,
+        subtotal,
+        discount,
+        coinsUsed,
+        coinValue,
+        amount,
+        paymentMethod: pp?.payment_method || 'Cash',
+        service: booking.service.name,
+        staff: booking.staff?.display_name || '-',
+        customer: booking.user.profile?.full_name || 'Walk-in',
+        customerEmail: booking.user.email || '',
+        customerPhone: booking.user.profile?.phone || '',
+        pdfUrl,
+        salon: {
+          name: booking.salon.name,
+          email: booking.salon.email,
+          phone: booking.salon.phone || '',
+          logo_url: booking.salon.logo_url || ''
+        }
+      };
+
+      res.json({ invoice });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to fetch invoice details', detail: error.message });
     }
   }
 
@@ -245,6 +330,13 @@ export class BookingsController {
             paid_at: new Date()
           }
         });
+
+        // Trigger PDF generation in background (non-blocking)
+        generateAndUploadInvoice(booking.id).then((url) => {
+          console.log(`Auto-generated and uploaded invoice PDF to Cloudinary: ${url}`);
+        }).catch(err => {
+          console.error("Failed to auto-generate/upload invoice PDF:", err);
+        });
       }
 
       res.status(201).json({ message: 'Booking created successfully', booking: { ...booking, booking_time: formatBookingTime(booking.booking_time) }, platformPayment });
@@ -318,6 +410,13 @@ export class BookingsController {
             }
           });
         }
+
+        // Trigger PDF generation in background (non-blocking)
+        generateAndUploadInvoice(id).then((url) => {
+          console.log(`Auto-generated and uploaded invoice PDF on update: ${url}`);
+        }).catch(err => {
+          console.error("Failed to auto-generate/upload invoice PDF on update:", err);
+        });
       }
 
       // Cancel Notification

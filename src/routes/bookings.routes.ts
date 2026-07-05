@@ -4,6 +4,9 @@ import { authenticateToken } from '../middlewares/auth.middleware';
 
 const router = Router({ mergeParams: true });
 
+// Public Invoice endpoint for guest invoice views
+router.get('/:id/invoice', BookingsController.getBookingInvoice);
+
 router.use(authenticateToken);
 
 // Core Booking
