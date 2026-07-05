@@ -126,7 +126,14 @@ export class BookingsController {
       const coinValue = Number(booking.coin_currency_value || 0.1) * coinsUsed;
       const amount = Number(booking.price_paid || booking.service.price || 0);
 
-      let pdfUrl = (pp?.invoice_url && pp.invoice_url.startsWith('http') && pp.invoice_url.includes('cloudinary') && !pp.invoice_url.includes('/image/upload/')) ? pp.invoice_url : null;
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+      let pdfUrl = (
+        pp?.invoice_url &&
+        pp.invoice_url.startsWith('http') &&
+        pp.invoice_url.includes('cloudinary') &&
+        !pp.invoice_url.includes('/image/upload/') &&
+        (!cloudName || pp.invoice_url.includes(`/${cloudName}/`))
+      ) ? pp.invoice_url : null;
       
       if (!pdfUrl) {
         try {
