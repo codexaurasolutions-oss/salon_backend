@@ -508,7 +508,14 @@ export class BookingsController {
         } catch (e) {}
       }
 
-      if (actualPaid >= totalValue || booking.status === 'completed') {
+      const discount = Number(booking.discount_amount || 0);
+      const coinsUsed = Number(booking.coins_used || 0);
+      const loyaltyUsed = Number(booking.loyalty_points_used || 0);
+      const coinValue = Number(booking.coin_currency_value || 0) * (coinsUsed + loyaltyUsed);
+      
+      const finalPayable = Math.max(0, totalValue - discount - coinValue);
+
+      if (actualPaid >= finalPayable || booking.status === 'completed') {
         return res.status(400).json({ error: 'Deposit is already settled or booking is completed.' });
       }
 
@@ -518,13 +525,13 @@ export class BookingsController {
         where: { id },
         data: { 
           status: 'completed',
-          price_paid: totalValue,
+          price_paid: finalPayable,
           notes: newNotes
         },
         include: { service: true }
       });
 
-      const remainingAmount = totalValue - actualPaid;
+      const remainingAmount = finalPayable - actualPaid;
       if (remainingAmount > 0) {
         const program = await prisma.loyaltyProgram.findUnique({ where: { salon_id: booking.salon_id } });
         const pointsRate = Number(program?.points_per_currency_unit || 1);
@@ -546,7 +553,7 @@ export class BookingsController {
       if (existingPP) {
          await prisma.platformPayment.update({
              where: { id: existingPP.id },
-             data: { amount: totalValue, status: 'completed' }
+             data: { amount: finalPayable, status: 'completed' }
          });
       } else {
         await prisma.platformPayment.create({
@@ -554,7 +561,7 @@ export class BookingsController {
             user_id: booking.user_id,
             booking_id: booking.id,
             salon_id: booking.salon_id,
-            amount: totalValue,
+            amount: finalPayable,
             currency: 'MYR',
             status: 'completed',
             payment_method: 'Cash',
