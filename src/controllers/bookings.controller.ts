@@ -120,11 +120,11 @@ export class BookingsController {
         });
       }
 
-      const subtotal = Number(booking.service.price || 0);
       const discount = Number(booking.discount_amount || 0);
       const coinsUsed = Number(booking.coins_used || 0);
       const coinValue = Number(booking.coin_currency_value || 0.1) * coinsUsed;
       const amount = Number(booking.price_paid || booking.service.price || 0);
+      const subtotal = amount + discount + coinValue;
 
       const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
       let pdfUrl = (
@@ -153,11 +153,12 @@ export class BookingsController {
         coinValue,
         amount,
         paymentMethod: pp?.payment_method || 'Cash',
-        service: booking.service.name,
+        service: booking.service_name || booking.service.name,
+        notes: booking.notes,
         staff: booking.staff?.display_name || '-',
-        customer: booking.user.profile?.full_name || 'Walk-in',
-        customerEmail: booking.user.email || '',
-        customerPhone: booking.user.profile?.phone || '',
+        customer: booking.user?.profile?.full_name || booking.customer_name || 'Walk-in',
+        customerEmail: booking.user?.email || booking.customer_email || '',
+        customerPhone: booking.user?.profile?.phone || booking.customer_phone || '',
         pdfUrl,
         salon: {
           name: booking.salon.name,
@@ -213,6 +214,18 @@ export class BookingsController {
 
       if (!data.salon_id || !data.service_id || !data.booking_date || !data.booking_time) {
          return res.status(400).json({ error: 'Missing required booking fields' });
+      }
+
+      let actualServiceId = data.service_id;
+      const serviceExists = await prisma.service.findUnique({ where: { id: actualServiceId } });
+      if (!serviceExists) {
+        let dummy = await prisma.service.findFirst({ where: { salon_id: data.salon_id, name: 'Custom Items' } });
+        if (!dummy) {
+          dummy = await prisma.service.create({
+            data: { salon_id: data.salon_id, name: 'Custom Items', price: 0, duration_minutes: 0, is_active: false }
+          });
+        }
+        actualServiceId = dummy.id;
       }
 
       // Allow owner/manager to create booking for a different user (walk-in customer)
@@ -290,7 +303,7 @@ export class BookingsController {
         data: {
           user_id: targetUserId!,
           salon_id: data.salon_id,
-          service_id: data.service_id,
+          service_id: actualServiceId,
           staff_id: data.staff_id,
           booking_date: new Date(data.booking_date),
           booking_time: new Date(`1970-01-01T${data.booking_time}Z`),
@@ -317,6 +330,31 @@ export class BookingsController {
             link: `/salon/bookings`
           }
         });
+      }
+
+      // Parse items to create product purchases
+      let items: any[] = [];
+      const itemsMatch = data.notes?.match(/ITEMS:\s*(\{.*\})/);
+      if (itemsMatch) {
+        try {
+          items = JSON.parse(itemsMatch[1]).items || [];
+          for (const item of items) {
+            if (item.type === 'product') {
+              await prisma.customerPurchase.create({
+                data: {
+                  user_id: targetUserId!,
+                  salon_id: data.salon_id,
+                  inventory_id: item.id || null,
+                  product_name: item.name,
+                  price: item.price,
+                  quantity: item.quantity || 1,
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Error creating customer purchases:", e);
+        }
       }
 
       // Auto-create PlatformPayment if booking is completed (invoice)

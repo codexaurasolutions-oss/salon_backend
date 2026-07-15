@@ -88,9 +88,13 @@ export function generateInvoicePdf(booking: any): Promise<Buffer> {
       doc.text(booking.salon.address || '', 50, 195, { width: 220 });
 
       doc.fontSize(8).font('Helvetica-Bold').fillColor('#94a3b8').text('BILL TO', 300, 135);
-      const customerName = booking.user?.profile?.full_name || booking.customer_name || 'Walk-in';
-      const customerEmail = booking.user?.email || booking.customer_email || '';
-      const customerPhone = booking.user?.profile?.phone || booking.customer_phone || '';
+      const guestNameMatch = booking.notes?.match(/\[GUEST:\s*(.*?)\s*\|/);
+      const isGuest = !!guestNameMatch;
+      const parsedGuestName = guestNameMatch ? guestNameMatch[1].trim() : null;
+
+      const customerName = parsedGuestName || booking.user?.profile?.full_name || booking.customer_name || 'Walk-in';
+      const customerEmail = isGuest ? '' : (booking.user?.email || booking.customer_email || '');
+      const customerPhone = isGuest ? '' : (booking.user?.profile?.phone || booking.customer_phone || '');
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#0f172a').text(customerName, 300, 150);
       doc.fontSize(9).font('Helvetica').fillColor('#475569').text(customerEmail, 300, 165);
       doc.text(customerPhone, 300, 180);
@@ -108,27 +112,54 @@ export function generateInvoicePdf(booking: any): Promise<Buffer> {
 
       doc.moveTo(50, 275).lineTo(545, 275).strokeColor('#f1f5f9').lineWidth(1).stroke();
 
-      // Table Row
-      const rowTop = 285;
-      doc.fontSize(9).font('Helvetica').fillColor('#334155');
+      // Extract ITEMS from notes if they exist
+      let invoiceItems: any[] = [];
+      const itemsMatch = booking.notes?.match(/ITEMS:\s*(\{.*\})/);
+      if (itemsMatch) {
+        try {
+          invoiceItems = JSON.parse(itemsMatch[1]).items || [];
+        } catch (e) {}
+      }
+
       const serviceName = booking.service_name || booking.service?.name || 'Service';
       const specialist = booking.staff?.display_name || '-';
-      const subtotal = Number(booking.service_price || booking.service?.price || booking.price || 0);
+      const subtotalFallback = Number(booking.service_price || booking.service?.price || booking.price || 0);
+
+      if (invoiceItems.length === 0) {
+        invoiceItems = [{ name: serviceName, type: 'service', price: subtotalFallback, quantity: 1, specialist }];
+      } else {
+        invoiceItems = invoiceItems.map(i => ({ ...i, specialist: i.type === 'service' ? specialist : '-' }));
+      }
+
+      let rowTop = 285;
+      let calculatedSubtotal = 0;
+
+      invoiceItems.forEach((item) => {
+        const itemPrice = Number(item.price || 0);
+        const itemQty = Number(item.quantity || 1);
+        const itemSub = itemPrice * itemQty;
+        calculatedSubtotal += itemSub;
+
+        doc.fontSize(9).font('Helvetica').fillColor('#334155');
+        doc.text(item.name, 50, rowTop, { width: 190 });
+        doc.text(item.specialist || '-', 250, rowTop);
+        doc.text(`MYR ${itemPrice.toFixed(2)}`, 350, rowTop, { width: 60, align: 'right' });
+        doc.text(itemQty.toString(), 420, rowTop, { width: 30, align: 'right' });
+        doc.text(`MYR ${itemSub.toFixed(2)}`, 470, rowTop, { width: 75, align: 'right' });
+
+        rowTop += 25;
+      });
+
+      doc.moveTo(50, rowTop).lineTo(545, rowTop).strokeColor('#f1f5f9').lineWidth(1).stroke();
+
       const amount = Number(booking.price_paid || booking.service?.price || booking.price || 0);
       const discount = Number(booking.discount_amount || 0);
       const coinsUsed = Number(booking.coins_used || 0);
       const coinValue = Number(booking.coin_currency_value || 0.1) * coinsUsed;
-
-      doc.text(serviceName, 50, rowTop, { width: 190 });
-      doc.text(specialist, 250, rowTop);
-      doc.text(`MYR ${subtotal.toFixed(2)}`, 350, rowTop, { width: 60, align: 'right' });
-      doc.text('1', 420, rowTop, { width: 30, align: 'right' });
-      doc.text(`MYR ${subtotal.toFixed(2)}`, 470, rowTop, { width: 75, align: 'right' });
-
-      doc.moveTo(50, 315).lineTo(545, 315).strokeColor('#f1f5f9').lineWidth(1).stroke();
+      const subtotal = calculatedSubtotal || subtotalFallback; // use actual calculated subtotal
 
       // Summary block
-      const summaryTop = 330;
+      const summaryTop = rowTop + 15;
       
       // Left: Payment Instructions
       doc.fontSize(9).font('Helvetica-Bold').fillColor('#0f172a').text('Payment Instructions', 50, summaryTop);
