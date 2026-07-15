@@ -88,6 +88,7 @@ import remindersRoutes from './routes/reminders.routes';
 import mailRoutes from './routes/mail.routes';
 import searchRoutes from './routes/search.routes';
 import couponsRoutes from './routes/coupons.routes';
+import settingsRoutes from './routes/settings.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/salons', salonsRoutes);
@@ -123,6 +124,7 @@ app.use('/api/salons/:salon_id/reminders', remindersRoutes);
 app.use('/api/reminders', remindersRoutes);
 app.use('/api/mail', mailRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.use('*', (req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
