@@ -508,10 +508,10 @@ export class BookingsController {
         } catch (e) {}
       }
 
-      const discount = Number(booking.discount_amount || 0);
-      const coinsUsed = Number(booking.coins_used || 0);
-      const loyaltyUsed = Number(booking.loyalty_points_used || 0);
-      const coinValue = Number(booking.coin_currency_value || 0) * (coinsUsed + loyaltyUsed);
+      const discount = Number((booking as any).discount_amount || 0);
+      const coinsUsed = Number((booking as any).coins_used || 0);
+      const loyaltyUsed = Number((booking as any).loyalty_points_used || 0);
+      const coinValue = Number((booking as any).coin_currency_value || 0) * (coinsUsed + loyaltyUsed);
       
       const finalPayable = Math.max(0, totalValue - discount - coinValue);
 
