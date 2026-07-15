@@ -186,12 +186,34 @@ export function generateInvoicePdf(booking: any): Promise<Buffer> {
         doc.text(`- MYR ${coinValue.toFixed(2)}`, 470, calcTop, { width: 75, align: 'right' });
       }
 
+      let depositPaid = 0;
+      if (booking.notes) {
+          const depositMatch = booking.notes.match(/\[DEPOSIT_PAID:\s*([\d.]+)\]/);
+          if (depositMatch) {
+              depositPaid = parseFloat(depositMatch[1]);
+          }
+      }
+
+      if (depositPaid > 0) {
+        calcTop += 15;
+        doc.text('Deposit Paid', 350, calcTop, { width: 100, align: 'right' });
+        doc.text(`- MYR ${depositPaid.toFixed(2)}`, 470, calcTop, { width: 75, align: 'right' });
+      }
+
       calcTop += 20;
       doc.moveTo(350, calcTop - 5).lineTo(545, calcTop - 5).strokeColor('#e2e8f0').lineWidth(1).stroke();
       
       doc.fontSize(11).font('Helvetica-Bold').fillColor('#0f172a');
-      doc.text('Total Paid', 350, calcTop, { width: 100, align: 'right' });
-      doc.text(`MYR ${amount.toFixed(2)}`, 470, calcTop, { width: 75, align: 'right' });
+      
+      if (depositPaid > 0) {
+        // Only remaining portion settled
+        const remainingAmount = amount - depositPaid;
+        doc.text('Remaining Settled', 330, calcTop, { width: 120, align: 'right' });
+        doc.text(`MYR ${remainingAmount.toFixed(2)}`, 470, calcTop, { width: 75, align: 'right' });
+      } else {
+        doc.text('Total Paid', 350, calcTop, { width: 100, align: 'right' });
+        doc.text(`MYR ${amount.toFixed(2)}`, 470, calcTop, { width: 75, align: 'right' });
+      }
 
       calcTop += 15;
       doc.fontSize(8).font('Helvetica').fillColor('#64748b');

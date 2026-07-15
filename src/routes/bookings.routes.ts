@@ -14,6 +14,7 @@ router.get('/', BookingsController.getBookings);
 router.post('/', BookingsController.createBooking);
 router.get('/:id', BookingsController.getBooking);
 router.put('/:id', BookingsController.updateBookingStatus);
+router.put('/:id/settle-deposit', BookingsController.settleDeposit);
 router.post('/:id/payment', BookingsController.addPayment);
 
 // Reviews

@@ -480,6 +480,104 @@ export class BookingsController {
     }
   }
 
+  static async settleDeposit(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const user_id = req.user?.user_id;
+
+      const booking = await prisma.booking.findUnique({ where: { id }, include: { service: true } });
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+      const role = await prisma.userRole.findFirst({
+        where: { user_id, salon_id: booking.salon_id, role: { in: ['owner', 'manager', 'staff'] } }
+      });
+      if (!role && req.user?.role !== 'super_admin') {
+         return res.status(403).json({ error: 'Not authorized to settle deposit.' });
+      }
+
+      const actualPaid = Number(booking.price_paid || 0);
+      let totalValue = Number(booking.service?.price || 0);
+
+      if (booking.notes && booking.notes.includes('ITEMS: {')) {
+        try {
+          const jsonStr = booking.notes.substring(booking.notes.indexOf('ITEMS: ') + 7);
+          const parsed = JSON.parse(jsonStr);
+          if (parsed.items && Array.isArray(parsed.items)) {
+            totalValue = parsed.items.reduce((sum: number, item: any) => sum + (Number(item.price) * Number(item.quantity)), 0);
+          }
+        } catch (e) {}
+      }
+
+      if (actualPaid >= totalValue || booking.status === 'completed') {
+        return res.status(400).json({ error: 'Deposit is already settled or booking is completed.' });
+      }
+
+      const newNotes = booking.notes ? `${booking.notes}\n[DEPOSIT_PAID: ${actualPaid}]` : `[DEPOSIT_PAID: ${actualPaid}]`;
+
+      const updated = await prisma.booking.update({
+        where: { id },
+        data: { 
+          status: 'completed',
+          price_paid: totalValue,
+          notes: newNotes
+        },
+        include: { service: true }
+      });
+
+      const remainingAmount = totalValue - actualPaid;
+      if (remainingAmount > 0) {
+        const program = await prisma.loyaltyProgram.findUnique({ where: { salon_id: booking.salon_id } });
+        const pointsRate = Number(program?.points_per_currency_unit || 1);
+        const earnedPoints = Math.floor(remainingAmount * pointsRate);
+        if (earnedPoints > 0) {
+          await prisma.loyaltyTransaction.create({
+            data: { user_id: booking.user_id, salon_id: booking.salon_id, points: earnedPoints, transaction_type: 'earned', description: 'Deposit settled' }
+          });
+        }
+        const coinsEarned = Math.ceil(remainingAmount / 10);
+        if (coinsEarned > 0) {
+          await prisma.coinTransaction.create({
+            data: { user_id: booking.user_id, amount: coinsEarned, transaction_type: 'earned', description: 'Deposit settled' }
+          });
+        }
+      }
+
+      const existingPP = await prisma.platformPayment.findFirst({ where: { booking_id: id } });
+      if (existingPP) {
+         await prisma.platformPayment.update({
+             where: { id: existingPP.id },
+             data: { amount: totalValue, status: 'completed' }
+         });
+      } else {
+        await prisma.platformPayment.create({
+          data: {
+            user_id: booking.user_id,
+            booking_id: booking.id,
+            salon_id: booking.salon_id,
+            amount: totalValue,
+            currency: 'MYR',
+            status: 'completed',
+            payment_method: 'Cash',
+            transaction_id: generateInvoiceNumber(),
+            invoice_number: generateInvoiceNumber(),
+            paid_at: new Date()
+          }
+        });
+      }
+
+      generateAndUploadInvoice(id).then((url) => {
+        console.log(`Auto-generated and uploaded invoice PDF on settle deposit: ${url}`);
+      }).catch(err => {
+        console.error("Failed to auto-generate/upload invoice PDF on settle:", err);
+      });
+
+      res.json({ message: 'Deposit settled', booking: { ...updated, booking_time: formatBookingTime(updated.booking_time) } });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ error: 'Failed to settle deposit' });
+    }
+  }
+
   static async addPayment(req: Request, res: Response) {
     try {
       const { id } = req.params;
