@@ -225,4 +225,113 @@ export class CustomerRecordsController {
       res.status(500).json({ error: 'Failed to fetch transformations' });
     }
   }
+
+  // --- NEW DIRECTORY APIs FOR AUTOFILL ---
+
+  static async getSalonDirectory(req: Request, res: Response) {
+    try {
+      const { salon_id } = req.params;
+      const current_user = req.user?.user_id;
+
+      // Basic Auth check
+      const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
+      const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
+      if (!role && !admin) return res.status(403).json({ error: 'Forbidden' });
+
+      // 1. Get all customers from CustomerSalonProfile
+      const profiles = await prisma.customerSalonProfile.findMany({
+        where: { salon_id },
+        include: { user: { include: { profile: true } } }
+      });
+
+      // 2. Get all distinct customers from Bookings for this salon
+      const bookings = await prisma.booking.findMany({
+        where: { salon_id },
+        include: { user: { include: { profile: true } } }
+      });
+
+      const customerMap = new Map();
+
+      // Add from Profiles
+      profiles.forEach(p => {
+        customerMap.set(p.user_id, {
+          id: p.user_id,
+          name: p.user.profile?.full_name || p.user.email.split('@')[0],
+          phone: p.user.profile?.phone || '',
+          email: p.user.email.includes('walkin_') ? '' : p.user.email,
+        });
+      });
+
+      // Add from Bookings
+      bookings.forEach(b => {
+        if (!customerMap.has(b.user_id)) {
+          customerMap.set(b.user_id, {
+            id: b.user_id,
+            name: b.user?.profile?.full_name || b.user?.email.split('@')[0] || 'Walk-in',
+            phone: b.user?.profile?.phone || '',
+            email: b.user?.email.includes('walkin_') ? '' : (b.user?.email || ''),
+          });
+        }
+      });
+
+      res.json({ customers: Array.from(customerMap.values()) });
+    } catch (error: any) {
+      res.status(500).json({ error: 'Failed to fetch salon directory' });
+    }
+  }
+
+  static async addCustomerToDirectory(req: Request, res: Response) {
+    try {
+      const { salon_id } = req.params;
+      const { name, phone, email } = req.body;
+      const current_user = req.user?.user_id;
+
+      // Basic Auth check
+      const role = await prisma.userRole.findFirst({ where: { user_id: current_user, salon_id } });
+      const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
+      if (!role && !admin) return res.status(403).json({ error: 'Forbidden' });
+
+      if (!name) return res.status(400).json({ error: 'Name is required' });
+
+      // Create a shadow user for this walk-in/offline customer
+      // If email is provided, use it, otherwise generate a dummy one
+      const dummyEmail = email || `walkin_${Date.now()}_${Math.random().toString(36).substring(7)}@noamskin.local`;
+
+      // 1. Create User
+      const newUser = await prisma.user.create({
+        data: {
+          email: dummyEmail,
+          password_hash: 'offline_account', // Hash not needed for offline shadow accounts
+          email_verified: false,
+          profile: {
+            create: {
+              full_name: name,
+              phone: phone || null,
+              user_type: 'customer'
+            }
+          },
+          customer_profiles: {
+            create: {
+              salon_id
+            }
+          }
+        }
+      });
+
+      res.json({ 
+        success: true, 
+        customer: {
+          id: newUser.id,
+          name: name,
+          phone: phone || '',
+          email: email || ''
+        }
+      });
+    } catch (error: any) {
+      if (error.code === 'P2002') {
+        return res.status(400).json({ error: 'A user with this email already exists' });
+      }
+      res.status(500).json({ error: 'Failed to add customer' });
+    }
+  }
 }

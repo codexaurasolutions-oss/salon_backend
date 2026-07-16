@@ -18,5 +18,8 @@ router.get('/:user_id/treatments', CustomerRecordsController.getAllTreatments);
 
 // Global
 router.get('/transformations', CustomerRecordsController.getTransformations);
+// Directory
+router.get('/salon/:salon_id/directory', CustomerRecordsController.getSalonDirectory);
+router.post('/salon/:salon_id/directory', CustomerRecordsController.addCustomerToDirectory);
 
 export default router;
