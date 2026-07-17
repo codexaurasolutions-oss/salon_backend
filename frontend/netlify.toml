@@ -1,0 +1,15 @@
+# Netlify Deployment Configuration
+
+# Build settings
+[build]
+  publish = "dist"
+  command = "node node_modules/vite/bin/vite.js build"
+
+# Redirect all routes to index.html for SPA routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Environment variables (configure these in Netlify dashboard)
+# VITE_API_BASE_URL = "https://your-backend-url.com/api"
