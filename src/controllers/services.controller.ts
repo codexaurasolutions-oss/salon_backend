@@ -10,7 +10,7 @@ export class ServicesController {
 
       let whereClause: any = { is_active: true };
       if (salon_id) whereClause.salon_id = salon_id;
-      // Note: If featured logic was in DB, add it to whereClause. For now we just return all matching.
+      if (featured) whereClause.is_featured = true;
 
       const services = await prisma.service.findMany({
         where: whereClause
@@ -79,7 +79,8 @@ export class ServicesController {
           duration_minutes: data.duration_minutes,
           category: data.category,
           image_url: data.image_url || null,
-          is_active: data.is_active ?? true
+          is_active: data.is_active ?? true,
+          is_featured: data.is_featured ?? false
         }
       });
       res.status(201).json({ message: 'Service added successfully', service });
@@ -101,7 +102,8 @@ export class ServicesController {
           price: data.price,
           duration_minutes: data.duration_minutes,
           category: data.category,
-          is_active: data.is_active
+          is_active: data.is_active,
+          is_featured: data.is_featured
         }
       });
       res.json({ message: 'Service updated successfully', service });
