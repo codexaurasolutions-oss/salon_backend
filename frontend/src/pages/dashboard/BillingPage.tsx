@@ -32,6 +32,9 @@ import { useMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
 import { useSalon } from "@/hooks/useSalon";
 import api from "@/services/api";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Receipt,
   CreditCard,
@@ -52,6 +55,8 @@ import {
   RefreshCw,
   User,
   X,
+  Check,
+  ChevronsUpDown,
   Scissors
 } from "lucide-react";
 import { format } from "date-fns";
@@ -118,6 +123,7 @@ const BillingPage = () => {
   const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone: string }>>([]);
   type InvoiceItem = { type: 'service' | 'product', id?: string, name: string, price: number, quantity: number };
   const [invoiceItems, setInvoiceItems] = useState<InvoiceItem[]>([]);
+  const [customerSearchOpen, setCustomerSearchOpen] = useState(false);
   const [newInvoice, setNewInvoice] = useState({
     customerId: "",
     date: format(new Date(), "yyyy-MM-dd"),
@@ -126,6 +132,7 @@ const BillingPage = () => {
     status: "paid" as 'paid' | 'pending',
     notes: "",
     guestPhone: "",
+    guestEmail: ""
   });
 
   const computedTotalAmount = invoiceItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -770,28 +777,70 @@ const BillingPage = () => {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-4 mb-4">
-                <div className="space-y-2">
+                <div className="space-y-2 flex flex-col">
                   <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Select Existing Customer</Label>
-                  <Select onValueChange={(val) => {
-                    if (val === 'walkin') {
-                       setNewInvoice({ ...newInvoice, customerId: "", notes: "", guestPhone: "" });
-                    } else {
-                       const c = customers.find(x => x.id === val);
-                       if (c) {
-                         setNewInvoice({ ...newInvoice, customerId: c.id, notes: c.name, guestPhone: c.phone });
-                       }
-                    }
-                  }}>
-                    <SelectTrigger className="bg-secondary/30 border-none h-12 rounded-xl">
-                      <SelectValue placeholder="Select or walk-in..." />
-                    </SelectTrigger>
-                    <SelectContent side="bottom" sideOffset={4}>
-                      <SelectItem value="walkin">Walk-in Guest</SelectItem>
-                      {customers.map(c => (
-                        <SelectItem key={c.id} value={c.id}>{c.name} {c.phone ? `(${c.phone})` : ''}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={customerSearchOpen} onOpenChange={setCustomerSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={customerSearchOpen}
+                        className="w-full justify-between bg-secondary/30 border-none h-12 rounded-xl text-left font-normal"
+                      >
+                        {newInvoice.customerId
+                          ? newInvoice.customerId === "walkin" 
+                            ? "Walk-in Guest" 
+                            : (customers.find((c) => c.id === newInvoice.customerId)?.name || "Unknown Customer")
+                          : "Select or walk-in..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search customer by name or phone..." />
+                        <CommandList>
+                          <CommandEmpty>No customer found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem
+                              value="walkin"
+                              onSelect={() => {
+                                setNewInvoice({ ...newInvoice, customerId: "walkin", notes: "", guestPhone: "" });
+                                setCustomerSearchOpen(false);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  newInvoice.customerId === "walkin" ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              Walk-in Guest
+                            </CommandItem>
+                            {customers.map((c) => (
+                              <CommandItem
+                                key={c.id}
+                                value={`${c.name} ${c.phone || ""}`}
+                                onSelect={() => {
+                                  setNewInvoice({ ...newInvoice, customerId: c.id, notes: c.name, guestPhone: c.phone || "" });
+                                  setCustomerSearchOpen(false);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    newInvoice.customerId === c.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                {c.name} {c.phone ? `(${c.phone})` : ""}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
