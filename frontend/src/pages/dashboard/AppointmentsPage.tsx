@@ -763,6 +763,7 @@ export default function AppointmentsPage() {
               setSelectedDate(new Date(booking.booking_date));
               setViewMode("day");
               setViewType("list");
+              setSelectedBooking(booking);
             }}
           />
         )}
