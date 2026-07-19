@@ -75,4 +75,90 @@ export class EmailService {
       console.error(`[EmailService] Failed to send order email to ${recipientEmail}:`, error?.message || error);
     }
   }
+
+  static async sendAdminBookingNotification(ownerEmail: string, bookingDetails: any) {
+    if (!ownerEmail) return;
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h2 style="color: #1a1a1a; margin-bottom: 5px;">New Appointment Booked!</h2>
+        <p style="color: #666; font-size: 14px;">A new appointment has just been scheduled.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; font-weight: bold; color: #334155;">Service: ${bookingDetails.serviceName || 'Service'}</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #64748b;">Date: ${bookingDetails.date}</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #64748b;">Time: ${bookingDetails.time}</p>
+        </div>
+
+        <p style="font-size: 14px; color: #333;">Log in to your dashboard to view the full details and manage this appointment.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
+        <p style="font-size: 12px; color: #94a3b8; text-align: center;">Noamskin Platform</p>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"${process.env.SMTP_FROM_NAME || 'Noamskin'}" <${process.env.SMTP_USER || 'hello@noamskin.com'}>`,
+        to: ownerEmail,
+        subject: `New Appointment: ${bookingDetails.serviceName}`,
+        html: htmlContent
+      });
+      console.log(`[EmailService] Admin booking notification sent to ${ownerEmail}`);
+    } catch (error: any) {
+      console.error(`[EmailService] Failed to send admin booking notification:`, error?.message || error);
+    }
+  }
+
+  static async sendAdminOrderNotification(adminEmail: string, orderDetails: any) {
+    if (!adminEmail) return;
+
+    const items = Array.isArray(orderDetails.items) ? orderDetails.items : [];
+    const itemsHtml = items.map((item: any) => `
+      <tr>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name || 'Product'} x ${item.quantity || 1}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">MYR ${((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <h2 style="color: #1a1a1a; margin-bottom: 5px;">New Product Order Received!</h2>
+        <p style="color: #666; font-size: 14px;">A new order has been placed on the platform.</p>
+        
+        <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin: 20px 0;">
+          <p style="margin: 0; font-size: 14px; font-weight: bold; color: #334155;">Order ID: #${orderDetails.id?.substring(0, 8) || orderDetails.id}</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #64748b;">Customer: ${orderDetails.customerName || 'Guest'}</p>
+          <p style="margin: 5px 0 0 0; font-size: 14px; color: #64748b;">Total: MYR ${Number(orderDetails.total_amount || 0).toFixed(2)}</p>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background-color: #1a1a1a; color: white;">
+              <th style="padding: 8px; text-align: left; font-size: 12px;">Item</th>
+              <th style="padding: 8px; text-align: right; font-size: 12px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <p style="font-size: 14px; color: #333;">Log in to your super admin dashboard to view the full details and prepare the order.</p>
+        <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 25px 0;" />
+        <p style="font-size: 12px; color: #94a3b8; text-align: center;">Noamskin Platform</p>
+      </div>
+    `;
+
+    try {
+      await transporter.sendMail({
+        from: `"${process.env.SMTP_FROM_NAME || 'Noamskin'}" <${process.env.SMTP_USER || 'hello@noamskin.com'}>`,
+        to: adminEmail,
+        subject: `New Order Received #${orderDetails.id?.substring(0, 8)}`,
+        html: htmlContent
+      });
+      console.log(`[EmailService] Admin order notification sent to ${adminEmail}`);
+    } catch (error: any) {
+      console.error(`[EmailService] Failed to send admin order notification:`, error?.message || error);
+    }
+  }
 }

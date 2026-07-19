@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../server';
 import { generateAndUploadInvoice } from '../services/pdf.service';
+import { EmailService } from '../services/email.service';
 
 function generateInvoiceNumber(): string {
   const prefix = 'INV';
@@ -319,7 +320,10 @@ export class BookingsController {
       });
 
       // Notify owner
-      const ownerRole = await prisma.userRole.findFirst({ where: { salon_id: data.salon_id, role: 'owner' } });
+      const ownerRole = await prisma.userRole.findFirst({ 
+        where: { salon_id: data.salon_id, role: 'owner' },
+        include: { user: true }
+      });
       if (ownerRole) {
         await prisma.notification.create({
           data: {
@@ -330,6 +334,14 @@ export class BookingsController {
             link: `/salon/bookings`
           }
         });
+
+        if (ownerRole.user?.email) {
+          EmailService.sendAdminBookingNotification(ownerRole.user.email, {
+            serviceName: booking.service.name,
+            date: new Date(data.booking_date).toLocaleDateString(),
+            time: formatBookingTime(booking.booking_time)
+          });
+        }
       }
 
       // Parse items to create product purchases

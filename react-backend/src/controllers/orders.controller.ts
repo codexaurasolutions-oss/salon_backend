@@ -51,6 +51,27 @@ export class OrdersController {
       if (normalizedGuestEmail) {
         EmailService.sendOrderReceiptEmail(order, normalizedGuestEmail, normalizedGuestName || undefined);
       }
+
+      // Notify Super Admin
+      const superAdmin = await prisma.user.findFirst({ where: { role: 'super_admin' } });
+      if (superAdmin) {
+        await prisma.notification.create({
+          data: {
+            user_id: superAdmin.id,
+            title: 'New Product Order',
+            body: `Order #${order.id.substring(0, 8)} placed for MYR ${order.total_amount}.`,
+            type: 'order',
+            link: `/super-admin/orders`
+          }
+        });
+        
+        if (superAdmin.email) {
+          EmailService.sendAdminOrderNotification(superAdmin.email, {
+            ...order,
+            customerName: normalizedGuestName
+          });
+        }
+      }
       
       res.status(201).json({ message: 'Order placed successfully', order });
     } catch (error: any) {
