@@ -53,7 +53,8 @@ export class OrdersController {
       }
 
       // Notify Super Admin
-      const superAdmin = await prisma.user.findFirst({ where: { role: 'super_admin' } });
+      const superAdminProfile = await prisma.platformAdmin.findFirst({ include: { user: true } });
+      const superAdmin = superAdminProfile?.user;
       if (superAdmin) {
         await prisma.notification.create({
           data: {
