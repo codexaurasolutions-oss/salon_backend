@@ -135,12 +135,8 @@ export const SalonProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
 
-      // Customers and non-salon users should not hit owner-only salon endpoints.
-      if (
-        userType === 'customer' &&
-        userSalonRole !== 'owner' &&
-        userSalonRole !== 'manager'
-      ) {
+      // Only owners and managers can hit the owner-only /salons/my endpoint.
+      if (userSalonRole !== 'owner' && userSalonRole !== 'manager') {
         setSalons([]);
         setCurrentSalon(null);
         setUserRole(null);
