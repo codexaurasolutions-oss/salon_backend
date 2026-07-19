@@ -126,7 +126,8 @@ export default function AppointmentsPage() {
   const [creatingBooking, setCreatingBooking] = useState(false);
 
   // Staff Assignment State
-  const [showStaffAssignment, setShowStaffAssignment] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedDetailBooking, setSelectedDetailBooking] = useState<any>(null);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [assigningStaff, setAssigningStaff] = useState(false);
   const [statusToSet, setStatusToSet] = useState<string | null>(null);
@@ -860,7 +861,10 @@ export default function AppointmentsPage() {
                 return (
                 <Card
                   key={booking.id}
-                  onClick={() => setSelectedBooking(booking)}
+                  onClick={() => {
+                    setSelectedDetailBooking(booking);
+                    setShowDetailModal(true);
+                  }}
                   className="group border-0 shadow-sm hover:shadow-md transition-all duration-300 bg-card overflow-hidden rounded-2xl cursor-pointer"
                 >
                   <div className="flex flex-col md:flex-row md:items-center">
@@ -954,6 +958,18 @@ export default function AppointmentsPage() {
                         <div className="flex items-center gap-2">
                           {getStatusBadge(booking.status, !!(booking.staff_id || booking.staff_name))}
 
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="rounded-xl hover:bg-secondary hover:text-accent mr-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDetailBooking(booking);
+                              setShowDetailModal(true);
+                            }}
+                          >
+                            <Eye className="w-5 h-5 text-muted-foreground transition-colors group-hover:text-foreground" />
+                          </Button>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="rounded-xl hover:bg-secondary">
@@ -1161,27 +1177,93 @@ export default function AppointmentsPage() {
             <DialogHeader>
               <DialogTitle>Collect Payment</DialogTitle>
               <DialogDescription>
-                Record a manual payment collected at the salon.
+                Record a partial or full payment for this booking.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Payment Amount (MYR)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={paymentAmountStr}
-                  onChange={(e) => setPaymentAmountStr(e.target.value)}
-                  placeholder="0.00"
-                />
+                <Label>Amount Received (MYR)</Label>
+                <Input type="number" step="0.01" value={paymentAmountStr} onChange={(e) => setPaymentAmountStr(e.target.value)} />
               </div>
             </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-              <Button onClick={handleProcessPayment} disabled={processingPayment || !paymentAmountStr} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                {processingPayment ? "Recording..." : "Record Payment"}
-              </Button>
-            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+              <Button onClick={() => handleRecordPayment(selectedPaymentBooking!.id)}>Record Payment</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Appointment Detail Modal */}
+        <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
+          <DialogContent className="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+            {selectedDetailBooking && (
+              <div className="flex flex-col">
+                <div className="bg-muted/30 p-6 flex flex-col items-center border-b border-border/50">
+                  <Avatar className="w-20 h-20 border-4 border-white shadow-sm ring-2 ring-accent/10 mb-4">
+                    <AvatarImage src="" />
+                    <AvatarFallback className="bg-gradient-to-br from-accent/20 to-accent/10 text-accent font-black text-2xl">
+                      {(selectedDetailBooking.full_name || selectedDetailBooking.user?.profile?.full_name || selectedDetailBooking.customer?.full_name || selectedDetailBooking.user_name || "G")[0].toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <h3 className="text-2xl font-black text-foreground">
+                    {selectedDetailBooking.full_name || selectedDetailBooking.user?.profile?.full_name || selectedDetailBooking.customer?.full_name || selectedDetailBooking.user_name || "Guest Customer"}
+                  </h3>
+                  <p className="text-muted-foreground font-medium flex items-center gap-2 mt-1">
+                    <Phone className="w-4 h-4" /> {selectedDetailBooking.user_phone || selectedDetailBooking.user?.profile?.phone || "No phone provided"}
+                  </p>
+                  <div className="flex gap-2 mt-4">
+                    {getStatusBadge(selectedDetailBooking.status, !!(selectedDetailBooking.staff_id || selectedDetailBooking.staff_name))}
+                  </div>
+                </div>
+                
+                <div className="p-6 space-y-6 bg-card">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Service</p>
+                      <p className="font-bold flex items-center gap-2">
+                        <Scissors className="w-4 h-4 text-accent" />
+                        {selectedDetailBooking.service_name || selectedDetailBooking.service?.name || "General Service"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Specialist</p>
+                      <p className="font-bold flex items-center gap-2">
+                        <User className="w-4 h-4 text-accent" />
+                        {selectedDetailBooking.staff_name || selectedDetailBooking.staff?.display_name || "Unassigned"}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Date & Time</p>
+                      <p className="font-bold flex items-center gap-2">
+                        <CalendarDays className="w-4 h-4 text-accent" />
+                        {format(new Date(selectedDetailBooking.booking_date), "MMM d, yyyy")} • {selectedDetailBooking.booking_time.slice(0,5)}
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pricing</p>
+                      <p className="font-bold flex items-center gap-2 text-emerald-600">
+                        MYR {Number(selectedDetailBooking.price || 0).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {selectedDetailBooking.notes && (
+                    <div className="space-y-2 pt-4 border-t border-border/50">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Notes & Details</p>
+                      <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-xl border border-border/50">
+                        {selectedDetailBooking.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-4 bg-muted/20 border-t border-border/50 flex justify-end">
+                  <Button variant="outline" onClick={() => setShowDetailModal(false)} className="rounded-xl font-bold hover:bg-muted">
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
