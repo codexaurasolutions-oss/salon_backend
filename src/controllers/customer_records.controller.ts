@@ -238,31 +238,52 @@ export class CustomerRecordsController {
       const admin = await prisma.platformAdmin.findUnique({ where: { user_id: current_user } });
       if (!role && !admin) return res.status(403).json({ error: 'Forbidden' });
 
-      // 1. Get all customers from CustomerSalonProfile
-      const profiles = await prisma.customerSalonProfile.findMany({
-        where: { salon_id },
-        include: { user: { include: { profile: true } } }
+      // 1. Get all globally registered customers (not walk-ins)
+      const globalCustomers = await prisma.user.findMany({
+        where: {
+          profile: { user_type: 'customer' },
+          NOT: { email: { contains: 'walkin_' } }
+        },
+        include: { profile: true }
       });
 
-      // 2. Get all distinct customers from Bookings for this salon
-      const bookings = await prisma.booking.findMany({
+      // 2. Get all walk-in customers that belong specifically to this salon
+      // (Or just users who have a CustomerSalonProfile for this salon, which covers walk-ins too)
+      const salonSpecificProfiles = await prisma.customerSalonProfile.findMany({
         where: { salon_id },
         include: { user: { include: { profile: true } } }
       });
 
       const customerMap = new Map();
 
-      // Add from Profiles
-      profiles.forEach(p => {
-        customerMap.set(p.user_id, {
-          id: p.user_id,
-          name: p.user.profile?.full_name || p.user.email.split('@')[0],
-          phone: p.user.profile?.phone || '',
-          email: p.user.email.includes('walkin_') ? '' : p.user.email,
+      // Add global customers
+      globalCustomers.forEach(c => {
+        customerMap.set(c.id, {
+          id: c.id,
+          name: c.profile?.full_name || c.email.split('@')[0],
+          phone: c.profile?.phone || '',
+          email: c.email,
         });
       });
 
-      // Add from Bookings
+      // Add salon specific profiles (covers walk-ins and previous booked users)
+      salonSpecificProfiles.forEach(p => {
+        if (!customerMap.has(p.user_id)) {
+          customerMap.set(p.user_id, {
+            id: p.user_id,
+            name: p.user.profile?.full_name || p.user.email.split('@')[0],
+            phone: p.user.profile?.phone || '',
+            email: p.user.email.includes('walkin_') ? '' : p.user.email,
+          });
+        }
+      });
+
+      // 3. Add from Bookings just to be 100% safe
+      const bookings = await prisma.booking.findMany({
+        where: { salon_id },
+        include: { user: { include: { profile: true } } }
+      });
+
       bookings.forEach(b => {
         if (!customerMap.has(b.user_id)) {
           customerMap.set(b.user_id, {
