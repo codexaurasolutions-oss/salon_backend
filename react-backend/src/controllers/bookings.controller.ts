@@ -335,7 +335,21 @@ export class BookingsController {
           }
         });
 
-        if (ownerRole.user?.email) {
+        let sendEmail = true;
+        if (booking.salon && booking.salon.settings) {
+          try {
+            const settings = typeof booking.salon.settings === 'string' 
+              ? JSON.parse(booking.salon.settings) 
+              : booking.salon.settings;
+            if (settings?.notifications?.email_bookings === false) {
+              sendEmail = false;
+            }
+          } catch (e) {
+            console.error("Error parsing salon settings for notifications:", e);
+          }
+        }
+
+        if (ownerRole.user?.email && sendEmail) {
           EmailService.sendAdminBookingNotification(ownerRole.user.email, {
             serviceName: booking.service.name,
             date: new Date(data.booking_date).toLocaleDateString(),
