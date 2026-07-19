@@ -865,15 +865,17 @@ const BillingPage = () => {
               </div>
               <div className="space-y-4">
                 <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Items ({invoiceItems.length})</Label>
-                {invoiceItems.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 bg-secondary/20 p-2 rounded-xl">
-                    <div className="flex-1 text-sm font-medium">{item.name}</div>
-                    <div className="text-sm">MYR {item.price} x {item.quantity}</div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setInvoiceItems(prev => prev.filter((_, i) => i !== idx))}>
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+                <div className="max-h-[25vh] overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+                  {invoiceItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-secondary/20 p-2 rounded-xl">
+                      <div className="flex-1 text-sm font-medium">{item.name}</div>
+                      <div className="text-sm">MYR {item.price} x {item.quantity}</div>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setInvoiceItems(prev => prev.filter((_, i) => i !== idx))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
                 
                 <div className="flex gap-2">
                   <Select onValueChange={v => {
