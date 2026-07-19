@@ -10,6 +10,7 @@ import {
   ChevronDown,
   MoreHorizontal,
   User,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { SalonNotificationSystem } from "./SalonNotificationSystem";
 import { useSalon } from "@/hooks/useSalon";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
@@ -262,24 +264,35 @@ export const MobileLayout = ({
 
           {!showBackButton && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative w-10 h-10"
-              >
-                <Bell className="w-5 h-5" />
-                <Badge className="absolute -top-1 -right-1 w-5 h-5 p-0 text-xs bg-destructive">
-                  3
-                </Badge>
-              </Button>
+              <SalonNotificationSystem />
 
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-10 h-10"
-              >
-                <MoreHorizontal className="w-5 h-5" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-10 h-10"
+                  >
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-card/95 backdrop-blur-xl border-border">
+                  {!isOwner && (
+                    <DropdownMenuItem className="cursor-pointer" onClick={() => navigate(`${basePath}/profile`)}>
+                      <User className="w-4 h-4 mr-2" />
+                      Profile Settings
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={handleSignOut}
+                    className="cursor-pointer text-destructive hover:bg-destructive/10"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           )}
         </div>
