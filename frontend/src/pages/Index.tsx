@@ -34,7 +34,7 @@ const Index = () => {
         description: "To reserve your spot in our local registry, please sign up or log in first.",
         variant: "default",
       });
-      navigate("/signup");
+      navigate("/signup", { state: { from: `/book?salonId=${salonId}` } });
       return;
     }
     navigate(`/book?salonId=${salonId}`);

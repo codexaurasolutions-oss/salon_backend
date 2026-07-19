@@ -76,7 +76,7 @@ export default function ServiceDetail() {
                 description: "To finalize your ritual scheduling, please join our community. Your unique profile ensures a bespoke experience.",
                 variant: "default",
             });
-            navigate("/signup");
+            navigate("/signup", { state: { from: url } });
             return;
         }
         navigate(url);

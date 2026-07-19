@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +32,7 @@ const CustomerSignup = () => {
 
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast } = useToast();
     const { signUp } = useAuth();
 
@@ -105,7 +106,13 @@ const CustomerSignup = () => {
             if (salonId) {
                 navigate(`/book?salonId=${salonId}`);
             } else {
-                navigate("/");
+                const from = location.state?.from;
+                const redirectUrl = typeof from === 'string' 
+                  ? from 
+                  : from?.pathname 
+                    ? from.pathname + (from.search || '') 
+                    : "/";
+                navigate(redirectUrl);
             }
         } catch (error: any) {
             console.error("Signup error:", error);
@@ -256,7 +263,7 @@ const CustomerSignup = () => {
                             <div className="text-center">
                                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
                                     Already a member?{" "}
-                                    <Link to="/login" className="text-accent underline font-black">
+                                    <Link to="/login" state={location.state} className="text-accent underline font-black">
                                         Sign In
                                     </Link>
                                 </p>

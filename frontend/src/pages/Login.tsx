@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { login, signOut } = useAuth();
 
@@ -50,9 +51,17 @@ const Login = () => {
       if (userType === 'customer') {
         toast({
           title: "Welcome Back!",
-          description: "Accessing your client dashboard...",
+          description: "Accessing your portal...",
         });
-        navigate("/user/dashboard");
+        
+        const from = location.state?.from;
+        const redirectUrl = typeof from === 'string' 
+          ? from 
+          : from?.pathname 
+            ? from.pathname + (from.search || '') 
+            : "/user/dashboard";
+            
+        navigate(redirectUrl);
       } else {
         toast({
           title: "Access Denied",
@@ -160,7 +169,7 @@ const Login = () => {
                 </p>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
                   New Customer?{" "}
-                  <Link to="/signup" className="text-accent underline font-black">
+                  <Link to="/signup" state={location.state} className="text-accent underline font-black">
                     Sign Up
                   </Link>
                 </p>
