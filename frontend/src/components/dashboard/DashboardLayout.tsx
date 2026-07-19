@@ -645,7 +645,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <Separator orientation="vertical" className="h-6 bg-border hidden md:block" />
 
             <div className="flex items-center gap-3">
-              {/* <SalonNotificationSystem onUnreadCountChange={setUnreadCount} /> */}
+              <SalonNotificationSystem onUnreadCountChange={setUnreadCount} />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
