@@ -1198,9 +1198,9 @@ export default function AppointmentsPage() {
 
         {/* Appointment Detail Modal */}
         <Dialog open={showDetailModal} onOpenChange={setShowDetailModal}>
-          <DialogContent className="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+          <DialogContent className="sm:max-w-lg rounded-3xl p-0 overflow-hidden border-none shadow-2xl max-h-[90vh] flex flex-col">
             {selectedDetailBooking && (
-              <div className="flex flex-col">
+              <div className="flex flex-col overflow-y-auto">
                 <div className="bg-muted/30 p-6 flex flex-col items-center border-b border-border/50">
                   <Avatar className="w-20 h-20 border-4 border-white shadow-sm ring-2 ring-accent/10 mb-4">
                     <AvatarImage src="" />
@@ -1253,9 +1253,40 @@ export default function AppointmentsPage() {
                   {selectedDetailBooking.notes && (
                     <div className="space-y-2 pt-4 border-t border-border/50">
                       <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Notes & Details</p>
-                      <p className="text-sm text-foreground/80 bg-muted/30 p-3 rounded-xl border border-border/50">
-                        {selectedDetailBooking.notes}
-                      </p>
+                      <div className="text-sm text-foreground/80 bg-muted/30 p-4 rounded-xl border border-border/50 overflow-x-auto whitespace-pre-wrap">
+                        {(() => {
+                          const notes = selectedDetailBooking.notes;
+                          if (notes.includes("ITEMS: {")) {
+                            try {
+                              const parts = notes.split("ITEMS: ");
+                              const prefix = parts[0];
+                              const jsonStr = parts.slice(1).join("ITEMS: ");
+                              const parsed = JSON.parse(jsonStr);
+                              return (
+                                <div className="space-y-3">
+                                  {prefix && <p className="font-semibold text-xs text-muted-foreground">{prefix}</p>}
+                                  {parsed.items && parsed.items.length > 0 && (
+                                    <ul className="space-y-2">
+                                      {parsed.items.map((item: any, i: number) => (
+                                        <li key={i} className="flex justify-between items-center text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                                          <div>
+                                            <span className="font-bold">{item.name}</span>
+                                            <span className="text-muted-foreground ml-2">x{item.quantity}</span>
+                                          </div>
+                                          <span className="font-medium">MYR {item.price}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </div>
+                              );
+                            } catch (e) {
+                              return notes;
+                            }
+                          }
+                          return notes;
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>
