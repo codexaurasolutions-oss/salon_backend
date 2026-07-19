@@ -128,6 +128,7 @@ export default function AppointmentsPage() {
   // Staff Assignment State
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDetailBooking, setSelectedDetailBooking] = useState<any>(null);
+  const [showStaffAssignment, setShowStaffAssignment] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [assigningStaff, setAssigningStaff] = useState(false);
   const [statusToSet, setStatusToSet] = useState<string | null>(null);
