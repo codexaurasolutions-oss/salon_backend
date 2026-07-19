@@ -218,7 +218,7 @@ const AllServicesSimple = () => {
         description: "Please sign up or log in to book this ritual.",
         variant: "default",
       });
-      navigate("/signup");
+      navigate("/signup", { state: { from: `/book?salonId=${service.salon_id}&serviceId=${service.id}` } });
       return;
     }
     window.location.href = `/book?salonId=${service.salon_id}&serviceId=${service.id}`;

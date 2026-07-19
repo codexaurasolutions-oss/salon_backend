@@ -53,7 +53,7 @@ export default function BookingTreatmentPage() {
     });
 
     useEffect(() => {
-        if (!authLoading && !user) navigate("/login");
+        if (!authLoading && !user) navigate("/login", { state: { from: location.pathname + location.search } });
         if (id && user) fetchData();
     }, [id, user, authLoading]);
 
