@@ -860,7 +860,8 @@ export default function AppointmentsPage() {
                 return (
                 <Card
                   key={booking.id}
-                  className="group border-0 shadow-sm hover:shadow-md transition-all duration-300 bg-card overflow-hidden rounded-2xl"
+                  onClick={() => setSelectedBooking(booking)}
+                  className="group border-0 shadow-sm hover:shadow-md transition-all duration-300 bg-card overflow-hidden rounded-2xl cursor-pointer"
                 >
                   <div className="flex flex-col md:flex-row md:items-center">
                     {/* Time Badge - Styled for prominence */}
@@ -954,7 +955,7 @@ export default function AppointmentsPage() {
                           {getStatusBadge(booking.status, !!(booking.staff_id || booking.staff_name))}
 
                           <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                               <Button variant="ghost" size="icon" className="rounded-xl hover:bg-secondary">
                                 <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
                               </Button>
