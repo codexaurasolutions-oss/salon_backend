@@ -185,7 +185,11 @@ const BookAppointment = () => {
         description: "To reserve your bespoke experience, please join our community first.",
         variant: "default"
       });
-      navigate(`/signup?salonId=${salonId}${searchParams.get("serviceId") ? `&serviceId=${searchParams.get("serviceId")}` : ""}`);
+      navigate("/signup", { 
+        state: { 
+          from: `/book?salonId=${salonId}${searchParams.get("serviceId") ? `&serviceId=${searchParams.get("serviceId")}` : ""}`
+        } 
+      });
     }
   }, [user, loading, salonId, navigate]);
 

@@ -101,19 +101,17 @@ const CustomerSignup = () => {
                 description: "Welcome to the elite grooming network.",
             });
 
-            // Redirect back to booking if we came from there
+            // Redirect to intended location or fallback to dashboard/booking
             const salonId = searchParams.get("salonId");
-            if (salonId) {
-                navigate(`/book?salonId=${salonId}`);
-            } else {
-                const from = location.state?.from;
-                const redirectUrl = typeof from === 'string' 
-                  ? from 
-                  : from?.pathname 
-                    ? from.pathname + (from.search || '') 
+            const from = location.state?.from;
+            const redirectUrl = typeof from === 'string' 
+                ? from 
+                : from?.pathname 
+                ? from.pathname + (from.search || '') 
+                : salonId 
+                    ? `/book?salonId=${salonId}` 
                     : "/";
-                navigate(redirectUrl);
-            }
+            navigate(redirectUrl);
         } catch (error: any) {
             console.error("Signup error:", error);
             toast({
