@@ -35,10 +35,11 @@ import {
 interface CalendarViewProps {
     bookings: any[];
     onDateSelect: (date: Date) => void;
+    onBookingClick?: (booking: any) => void;
     selectedDate: Date;
 }
 
-export const CalendarView = ({ bookings, onDateSelect, selectedDate }: CalendarViewProps) => {
+export const CalendarView = ({ bookings, onDateSelect, onBookingClick, selectedDate }: CalendarViewProps) => {
     const [currentMonth, setCurrentMonth] = useState(new Date());
 
     const days = useMemo(() => {
@@ -149,8 +150,13 @@ export const CalendarView = ({ bookings, onDateSelect, selectedDate }: CalendarV
                                         <TooltipProvider key={booking.id}>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <div className={cn(
-                                                        "group flex items-center gap-2 px-2 py-1.5 rounded-lg text-white shadow-sm transition-transform hover:scale-[1.02]",
+                                                    <div 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if (onBookingClick) onBookingClick(booking);
+                                                        }}
+                                                        className={cn(
+                                                        "group flex items-center gap-2 px-2 py-1.5 rounded-lg text-white shadow-sm transition-transform hover:scale-[1.02] cursor-pointer",
                                                         getStatusColor(booking.status)
                                                     )}>
                                                         <Clock className="w-2.5 h-2.5 flex-shrink-0" />

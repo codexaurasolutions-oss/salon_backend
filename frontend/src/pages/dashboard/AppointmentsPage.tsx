@@ -759,6 +759,11 @@ export default function AppointmentsPage() {
               setSelectedDate(d);
               if (viewMode === "all") setViewMode("day");
             }}
+            onBookingClick={(booking) => {
+              setSelectedDate(new Date(booking.booking_date));
+              setViewMode("day");
+              setViewType("list");
+            }}
           />
         )}
 
