@@ -263,6 +263,8 @@ export class CustomerRecordsController {
           name: c.profile?.full_name || c.email.split('@')[0],
           phone: c.profile?.phone || '',
           email: c.email,
+          is_member: true,
+          booking_count: 0
         });
       });
 
@@ -274,6 +276,8 @@ export class CustomerRecordsController {
             name: p.user.profile?.full_name || p.user.email.split('@')[0],
             phone: p.user.profile?.phone || '',
             email: p.user.email.includes('walkin_') ? '' : p.user.email,
+            is_member: !p.user.email.includes('walkin_'),
+            booking_count: 0
           });
         }
       });
@@ -291,7 +295,14 @@ export class CustomerRecordsController {
             name: b.user?.profile?.full_name || b.user?.email.split('@')[0] || 'Walk-in',
             phone: b.user?.profile?.phone || '',
             email: b.user?.email.includes('walkin_') ? '' : (b.user?.email || ''),
+            is_member: b.user?.email ? !b.user.email.includes('walkin_') : false,
+            booking_count: 0
           });
+        }
+        // Increment booking count
+        const customer = customerMap.get(b.user_id);
+        if (customer) {
+          customer.booking_count += 1;
         }
       });
 
