@@ -264,7 +264,8 @@ export class CustomerRecordsController {
           phone: c.profile?.phone || '',
           email: c.email,
           is_member: true,
-          booking_count: 0
+          booking_count: 0,
+          loyalty_points: 0
         });
       });
 
@@ -277,8 +278,13 @@ export class CustomerRecordsController {
             phone: p.user.profile?.phone || '',
             email: p.user.email.includes('walkin_') ? '' : p.user.email,
             is_member: !p.user.email.includes('walkin_'),
-            booking_count: 0
+            booking_count: 0,
+            loyalty_points: p.loyalty_points || 0
           });
+        } else {
+          // Update points if profile exists
+          const existing = customerMap.get(p.user_id);
+          existing.loyalty_points = p.loyalty_points || 0;
         }
       });
 
@@ -296,7 +302,8 @@ export class CustomerRecordsController {
             phone: b.user?.profile?.phone || '',
             email: b.user?.email.includes('walkin_') ? '' : (b.user?.email || ''),
             is_member: b.user?.email ? !b.user.email.includes('walkin_') : false,
-            booking_count: 0
+            booking_count: 0,
+            loyalty_points: 0
           });
         }
         // Increment booking count

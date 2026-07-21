@@ -259,7 +259,21 @@ export class BookingsController {
       let coinCurrencyValue = 0;
       const coinPrice = 0.01; // Example: $0.01 per coin/point
 
-      if (data.use_coins) {
+      if (data.explicit_loyalty_points && data.explicit_loyalty_points > 0) {
+        loyaltyPointsToUse = Number(data.explicit_loyalty_points);
+        coinCurrencyValue = Number(data.explicit_loyalty_discount || 0);
+
+        await prisma.loyaltyTransaction.create({
+          data: { user_id: targetUserId!, salon_id: data.salon_id, points: -loyaltyPointsToUse, transaction_type: 'redeemed', description: 'Manual Billing Points Redemption' }
+        });
+        
+        // Also update the customer salon profile points
+        await prisma.customerSalonProfile.updateMany({
+          where: { user_id: targetUserId!, salon_id: data.salon_id },
+          data: { loyalty_points: { decrement: loyaltyPointsToUse } }
+        });
+
+      } else if (data.use_coins) {
         const coinBalance = await prisma.coinTransaction.aggregate({
           _sum: { amount: true }, where: { user_id: targetUserId }
         });
@@ -312,7 +326,7 @@ export class BookingsController {
           coin_currency_value: coinCurrencyValue,
           discount_amount: data.discount_amount || 0,
           coupon_code: data.coupon_code,
-          notes: data.notes,
+          notes: data.notes ? `${data.notes}\n[LOYALTY_POINTS_USED: ${loyaltyPointsToUse}]` : `[LOYALTY_POINTS_USED: ${loyaltyPointsToUse}]`,
           status: data.status || 'pending'
         },
         include: { service: true, salon: true }
