@@ -599,6 +599,76 @@ export class BookingsController {
     }
   }
 
+  static async settleManualInvoice(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = req.body;
+      const user_id = req.user?.user_id;
+
+      const booking = await prisma.booking.findUnique({ where: { id }, include: { service: true } });
+      if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+      // Verify admin/staff access
+      const role = await prisma.userRole.findFirst({ where: { user_id, salon_id: booking.salon_id } });
+      if (!role) return res.status(403).json({ error: 'Forbidden' });
+
+      const newAmountPaid = Number(booking.price_paid || 0) + Number(data.amount_paid || 0);
+      
+      const updateData: any = { 
+        price_paid: newAmountPaid,
+        status: 'completed',
+        discount_amount: (Number(booking.discount_amount || 0)) + Number(data.discount_amount || 0),
+        coupon_code: data.coupon_code || booking.coupon_code,
+        coins_used: Number(booking.coins_used || 0) + Number(data.explicit_loyalty_points || 0),
+        coin_currency_value: data.explicit_loyalty_discount || booking.coin_currency_value,
+        notes: data.notes ? `${booking.notes ? booking.notes + '\n' : ''}${data.notes}` : booking.notes
+      };
+
+      // Handle Points Deduction
+      if (data.explicit_loyalty_points && Number(data.explicit_loyalty_points) > 0) {
+        await prisma.loyaltyTransaction.create({
+          data: { 
+            user_id: booking.user_id, 
+            salon_id: booking.salon_id, 
+            points: -Number(data.explicit_loyalty_points), 
+            transaction_type: 'redeemed', 
+            description: 'Manual Billing Settlement Redemption' 
+          }
+        });
+        
+        await prisma.customerSalonProfile.updateMany({
+          where: { user_id: booking.user_id, salon_id: booking.salon_id },
+          data: { loyalty_points: { decrement: Number(data.explicit_loyalty_points) } }
+        });
+      }
+
+      const updatedBooking = await prisma.booking.update({
+        where: { id },
+        data: updateData
+      });
+
+      // Create a PlatformPayment record for the ledger
+      if (Number(data.amount_paid || 0) > 0 || (data.explicit_loyalty_points && Number(data.explicit_loyalty_points) > 0)) {
+        await prisma.platformPayment.create({
+            data: {
+                salon_id: booking.salon_id,
+                amount: Number(data.amount_paid || 0),
+                status: 'completed',
+                transaction_id: `SETTLE_${id}_${Date.now()}`,
+                payment_gateway: data.payment_method || 'manual',
+                payment_method: data.payment_method || 'manual',
+                notes: `Settlement for booking ${id}`
+            }
+        });
+      }
+
+      res.json({ message: 'Booking settled successfully', booking: updatedBooking });
+    } catch (error: any) {
+      console.error('Error settling invoice:', error);
+      res.status(500).json({ error: 'Failed to settle invoice' });
+    }
+  }
+
   static async addPayment(req: Request, res: Response) {
     try {
       const { id } = req.params;
