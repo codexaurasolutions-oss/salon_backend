@@ -306,10 +306,12 @@ export class CustomerRecordsController {
             loyalty_points: 0
           });
         }
-        // Increment booking count
-        const customer = customerMap.get(b.user_id);
-        if (customer) {
-          customer.booking_count += 1;
+        // Only count COMPLETED bookings for the RM50 first-time promo check
+        if (b.status === 'completed') {
+          const customer = customerMap.get(b.user_id);
+          if (customer) {
+            customer.booking_count += 1;
+          }
         }
       });
 
