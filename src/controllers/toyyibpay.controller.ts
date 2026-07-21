@@ -191,6 +191,19 @@ export class ToyyibPayController {
     try {
       const { refno, status, billcode, msg } = req.body;
 
+      const existingPayment = await prisma.platformPayment.findFirst({
+          where: { transaction_id: billcode }
+      });
+
+      if (!existingPayment) {
+          return res.status(404).send('Payment not found');
+      }
+
+      if (existingPayment.status === 'completed' || existingPayment.status === 'failed') {
+          // Idempotency check: already processed
+          return res.send('OK');
+      }
+
       if (status === '1') {
           await prisma.platformPayment.updateMany({
               where: { transaction_id: billcode },
