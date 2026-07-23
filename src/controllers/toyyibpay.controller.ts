@@ -189,7 +189,7 @@ export class ToyyibPayController {
 
   static async callback(req: Request, res: Response) {
     try {
-      const { refno, status, billcode, msg } = req.body;
+      const { refno, status, status_id, billcode, msg } = req.body;
 
       const existingPayment = await prisma.platformPayment.findFirst({
           where: { transaction_id: billcode }
@@ -204,26 +204,27 @@ export class ToyyibPayController {
           return res.send('OK');
       }
 
-      if (status === '1') {
+      // Check payment status from different possible parameters (status_id is standard in ToyyibPay callbacks)
+      const paymentStatus = status_id || status || req.body.billpaymentStatus;
+      const refnoVal = refno || req.body.billExternalReferenceNo || req.body.order_id || existingPayment.notes?.match(/ref: (.+)/)?.[1] || '';
+
+      if (String(paymentStatus) === '1') {
           await prisma.platformPayment.updateMany({
               where: { transaction_id: billcode },
               data: { status: 'completed', paid_at: new Date() }
           });
 
-          if (refno) {
-              const order = await prisma.platformOrder.findUnique({ where: { id: refno } });
+          if (refnoVal) {
+              const order = await prisma.platformOrder.findUnique({ where: { id: refnoVal } });
               if (order) {
-                  const updatedOrder = await prisma.platformOrder.update({ where: { id: refno }, data: { status: 'paid' } });
+                  const updatedOrder = await prisma.platformOrder.update({ where: { id: refnoVal }, data: { status: 'paid' } });
                   if (updatedOrder.guest_email) {
                       EmailService.sendOrderReceiptEmail(updatedOrder, updatedOrder.guest_email, updatedOrder.guest_name || undefined);
                   }
               } else {
-                    const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
+                    const bookingIds = String(refnoVal).split(',').map(id => id.trim()).filter(Boolean);
                     if (bookingIds.length > 0) {
-                        const payment = await prisma.platformPayment.findFirst({
-                            where: { transaction_id: billcode }
-                        });
-                        const paidAmount = Number(payment?.amount || 0);
+                        const paidAmount = Number(existingPayment.amount || 0);
                         const splitAmount = paidAmount / bookingIds.length;
 
                         await prisma.booking.updateMany({
@@ -239,7 +240,7 @@ export class ToyyibPayController {
       } else {
           await prisma.platformPayment.updateMany({
             where: { transaction_id: billcode },
-            data: { status: 'failed', notes: msg }
+            data: { status: 'failed', notes: msg || 'Payment failed' }
         });
       }
       
@@ -247,6 +248,86 @@ export class ToyyibPayController {
     } catch (error: any) {
       console.error('ToyyibPay Callback Error:', error);
       res.status(500).send('Error');
+    }
+  }
+
+  static async verifyPayment(req: Request, res: Response) {
+    try {
+      const { billcode, reference } = req.body;
+
+      if (!billcode) {
+        return res.status(400).json({ error: 'billcode is required' });
+      }
+
+      const toyyibpaySecret = process.env.TOYYIBPAY_USER_SECRET_KEY || process.env.TOYYIBPAY_SECRET_KEY;
+      const isProduction = process.env.NODE_ENV === 'production';
+      const toyyibpayApiUrl = isProduction
+        ? 'https://toyyibpay.com/index.php/api/getBillTransactions'
+        : 'https://dev.toyyibpay.com/index.php/api/getBillTransactions';
+
+      const formData = new URLSearchParams();
+      formData.append('userSecretKey', toyyibpaySecret || '');
+      formData.append('billCode', billcode);
+
+      const response = await fetch(toyyibpayApiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      });
+
+      const responseText = await response.text();
+      let transactions;
+      try {
+        transactions = JSON.parse(responseText);
+      } catch {
+        return res.status(502).json({ error: 'Invalid response from ToyyibPay' });
+      }
+
+      const successfulTxn = Array.isArray(transactions)
+        ? transactions.find((t: any) => String(t.billpaymentStatus) === '1')
+        : null;
+
+      const existingPayment = await prisma.platformPayment.findFirst({
+        where: { transaction_id: billcode }
+      });
+
+      if (!existingPayment) {
+        return res.status(404).json({ error: 'Payment record not found' });
+      }
+
+      if (existingPayment.status === 'completed') {
+        return res.json({ status: 'already_completed', message: 'Payment already processed' });
+      }
+
+      if (successfulTxn) {
+        await prisma.platformPayment.updateMany({
+          where: { transaction_id: billcode },
+          data: { status: 'completed', paid_at: new Date() }
+        });
+
+        const refno = reference || existingPayment.notes?.match(/ref: (.+)/)?.[1] || '';
+        const bookingIds = String(refno).split(',').map(id => id.trim()).filter(Boolean);
+
+        if (bookingIds.length > 0) {
+          const paidAmount = Number(existingPayment.amount || 0);
+          const splitAmount = paidAmount / bookingIds.length;
+
+          await prisma.booking.updateMany({
+            where: { id: { in: bookingIds } },
+            data: {
+              status: 'confirmed',
+              price_paid: { increment: splitAmount }
+            }
+          });
+        }
+
+        return res.json({ status: 'completed', message: 'Payment verified and bookings confirmed' });
+      }
+
+      return res.json({ status: 'pending', message: 'Payment not yet confirmed by ToyyibPay' });
+    } catch (error: any) {
+      console.error('ToyyibPay Verify Error:', error);
+      res.status(500).json({ error: 'Failed to verify payment', detail: error.message });
     }
   }
 }

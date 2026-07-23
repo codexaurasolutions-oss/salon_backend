@@ -28,16 +28,30 @@ export class BookingsController {
   static async getBookings(req: Request, res: Response) {
     try {
       const user_id = req.user?.user_id;
-      const { salon_id, date, status, staff_id, user_id: query_user_id } = req.query;
+      const { salon_id, date, start_date, end_date, status, staff_id, user_id: query_user_id } = req.query;
 
       if (salon_id) {
-        // Salon filtered
+        // Salon filtered — show all statuses (including pending) so admin can see new bookings
         const whereClause: any = { salon_id: salon_id as string };
-        if (date) whereClause.booking_date = new Date(date as string);
+        if (date) {
+          const targetDate = new Date(date as string);
+          // Set to the start and end of the target day in UTC to prevent timezone offset mismatches
+          const start = new Date(Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0, 0));
+          const end = new Date(Date.UTC(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59, 999));
+          whereClause.booking_date = {
+            gte: start,
+            lte: end
+          };
+        } else if (start_date || end_date) {
+          const dateFilter: any = {};
+          if (start_date) dateFilter.gte = new Date(start_date as string);
+          if (end_date) dateFilter.lte = new Date(end_date as string);
+          whereClause.booking_date = dateFilter;
+        }
         if (status) {
           whereClause.status = status;
         } else {
-          whereClause.status = { not: 'pending' };
+          whereClause.status = { not: 'cancelled' };
         }
         if (staff_id) whereClause.staff_id = staff_id;
         if (query_user_id) whereClause.user_id = query_user_id as string;
@@ -57,11 +71,12 @@ export class BookingsController {
         return res.json({ bookings: mapped });
       } else {
         // User's own bookings
-        const whereClause: any = { user_id };
+        const targetUserId = (query_user_id as string) || user_id;
+        const whereClause: any = { user_id: targetUserId };
         if (status) {
           whereClause.status = status;
         } else {
-          whereClause.status = { not: 'pending' };
+          whereClause.status = { not: 'cancelled' };
         }
 
         const bookings = await prisma.booking.findMany({
