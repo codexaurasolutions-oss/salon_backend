@@ -347,9 +347,9 @@ export class BookingsController {
         include: { service: true, salon: true }
       });
 
-      // Notify owner
+      // Notify owner (only if status is confirmed/completed)
       const ownerRole = await prisma.userRole.findFirst({ where: { salon_id: data.salon_id, role: 'owner' } });
-      if (ownerRole) {
+      if (booking.status !== 'pending' && ownerRole) {
         await prisma.notification.create({
           data: {
             user_id: ownerRole.user_id,

@@ -234,6 +234,30 @@ export class ToyyibPayController {
                                 price_paid: { increment: splitAmount }
                             }
                         });
+
+                        // Notify owner now that it's paid
+                        try {
+                            const updatedBookings = await prisma.booking.findMany({
+                                where: { id: { in: bookingIds } },
+                                include: { service: true }
+                            });
+                            for (const b of updatedBookings) {
+                                const ownerRole = await prisma.userRole.findFirst({ where: { salon_id: b.salon_id, role: 'owner' } });
+                                if (ownerRole) {
+                                    await prisma.notification.create({
+                                        data: {
+                                            user_id: ownerRole.user_id,
+                                            title: b.staff_id ? 'New Appointment' : 'Staff Assignment Required',
+                                            body: `New session booked for ${b.service?.name || 'Service'}.`,
+                                            type: 'booking',
+                                            link: `/salon/bookings`
+                                        }
+                                    });
+                                }
+                            }
+                        } catch (err) {
+                            console.error("Failed to send owner notification on payment callback:", err);
+                        }
                     }
               }
           }
@@ -319,6 +343,30 @@ export class ToyyibPayController {
               price_paid: { increment: splitAmount }
             }
           });
+
+          // Notify owner now that it's paid
+          try {
+              const updatedBookings = await prisma.booking.findMany({
+                  where: { id: { in: bookingIds } },
+                  include: { service: true }
+              });
+              for (const b of updatedBookings) {
+                  const ownerRole = await prisma.userRole.findFirst({ where: { salon_id: b.salon_id, role: 'owner' } });
+                  if (ownerRole) {
+                      await prisma.notification.create({
+                          data: {
+                              user_id: ownerRole.user_id,
+                              title: b.staff_id ? 'New Appointment' : 'Staff Assignment Required',
+                              body: `New session booked for ${b.service?.name || 'Service'}.`,
+                              type: 'booking',
+                              link: `/salon/bookings`
+                          }
+                      });
+                  }
+              }
+          } catch (err) {
+              console.error("Failed to send owner notification on payment verification:", err);
+          }
         }
 
         return res.json({ status: 'completed', message: 'Payment verified and bookings confirmed' });
