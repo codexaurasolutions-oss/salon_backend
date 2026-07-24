@@ -51,7 +51,7 @@ export class BookingsController {
         if (status) {
           whereClause.status = status;
         } else {
-          whereClause.status = { not: 'cancelled' };
+          whereClause.status = { notIn: ['cancelled', 'pending'] };
         }
         if (staff_id) whereClause.staff_id = staff_id;
         if (query_user_id) whereClause.user_id = query_user_id as string;
@@ -76,7 +76,7 @@ export class BookingsController {
         if (status) {
           whereClause.status = status;
         } else {
-          whereClause.status = { not: 'cancelled' };
+          whereClause.status = { notIn: ['cancelled', 'pending'] };
         }
 
         const bookings = await prisma.booking.findMany({
@@ -260,7 +260,7 @@ export class BookingsController {
             staff_id: data.staff_id,
             booking_date: new Date(data.booking_date),
             booking_time: new Date(`1970-01-01T${data.booking_time}Z`),
-            status: { not: 'cancelled' }
+            status: { notIn: ['cancelled', 'pending'] }
           }
         });
         if (existing) {

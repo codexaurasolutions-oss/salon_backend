@@ -102,6 +102,7 @@ export class SearchController {
       const bookingsForCustomers = await prisma.booking.findMany({
           where: {
               salon_id: String(salon_id),
+              status: { notIn: ['cancelled', 'pending'] },
               OR: [
                   { user: { profile: { full_name: { contains: String(q) } } } },
                   { user: { email: { contains: String(q) } } },
@@ -151,6 +152,7 @@ export class SearchController {
       const appointments = await prisma.booking.findMany({
           where: {
               salon_id: String(salon_id),
+              status: { notIn: ['cancelled', 'pending'] },
               OR: [
                   { user: { profile: { full_name: { contains: String(q) } } } },
                   { user: { profile: { phone: { contains: String(q) } } } },

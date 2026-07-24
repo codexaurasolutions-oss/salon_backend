@@ -80,7 +80,7 @@ export class StaffController {
             salon_id: salon_id as string,
             booking_date: bookingDate,
             booking_time: bookingTime,
-            status: { not: 'cancelled' },
+            status: { notIn: ['cancelled', 'pending'] },
             staff_id: { not: null }
           }
         });
@@ -147,7 +147,7 @@ export class StaffController {
         where: {
           staff_id: staff.id,
           booking_date: { gte: today, lt: tomorrow },
-          status: { not: 'cancelled' }
+          status: { notIn: ['cancelled', 'pending'] }
         },
         include: { 
           service: { select: { name: true } }, 
@@ -161,7 +161,7 @@ export class StaffController {
         where: {
           staff_id: staff.id,
           booking_date: { gte: tomorrow },
-          status: { not: 'cancelled' }
+          status: { notIn: ['cancelled', 'pending'] }
         },
         include: { 
           service: { select: { name: true } },

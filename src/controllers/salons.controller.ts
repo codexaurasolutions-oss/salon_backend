@@ -186,7 +186,7 @@ export class SalonsController {
 
       // 3. Customer Ratio - new vs returning
       const customerBookings = await prisma.booking.findMany({
-        where: { salon_id: id },
+        where: { salon_id: id, status: { notIn: ['cancelled', 'pending'] } },
         select: { user_id: true, created_at: true }
       });
       const firstBookingMap: Record<string, Date> = {};
@@ -210,7 +210,7 @@ export class SalonsController {
 
       // 4. Recent Activity - last 10 bookings with user info
       const recentBookings = await prisma.booking.findMany({
-        where: { salon_id: id },
+        where: { salon_id: id, status: { notIn: ['cancelled', 'pending'] } },
         include: {
           service: { select: { name: true } },
           user: { select: { id: true } }
